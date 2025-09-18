@@ -118,6 +118,50 @@ export interface WellnessHistory {
   }>
 }
 
+// Wellness Analysis Types
+export interface WellnessCategory {
+  id: string
+  name: string
+  description: string
+  keywords: string[]
+  theme_words: string[]
+}
+
+export interface WellnessCategoriesResponse {
+  categories: WellnessCategory[]
+  total_count: number
+}
+
+export interface WellnessAnalysisRequest {
+  user_input: string
+}
+
+export interface WellnessVerse {
+  id: number
+  surah_number: number
+  verse_number: number
+  arabic_text: string
+  translation: string
+  similarity_score: number
+  surah_name: string
+  context?: string
+}
+
+export interface WellnessAnalysisResult {
+  user_input: string
+  detected_categories: string[]
+  verses: WellnessVerse[]
+  guidance: string
+  recommendations: string[]
+  success: boolean
+}
+
+export interface CategoryVersesResponse {
+  verses: WellnessVerse[]
+  category_id: string
+  total_count: number
+}
+
 export interface Verse {
   chapter: number
   verse: number

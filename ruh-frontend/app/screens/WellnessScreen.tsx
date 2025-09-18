@@ -14,10 +14,11 @@ import { Screen } from "@/components/Screen"
 import { Text } from "@/components/Text"
 import { Button } from "@/components/Button"
 import { AnimatedScreenWrapper } from "@/components/AnimatedScreenWrapper"
+import { WellnessAnalysis } from "@/components/WellnessAnalysis"
 import { useAppTheme } from "@/theme/context"
 import type { ThemedStyle } from "@/theme/types"
 import { api } from "@/services/api"
-import { WellnessHistory, WellnessCheckin } from "@/services/api/types"
+import { WellnessHistory, WellnessCheckin, WellnessAnalysisResult } from "@/services/api/types"
 import { useUser } from "@/contexts/UserContext"
 
 interface WellnessScreenProps {}
@@ -38,6 +39,7 @@ export const WellnessScreen: FC<WellnessScreenProps> = function WellnessScreen()
   const [loading, setLoading] = useState(false)
   const [refreshing, setRefreshing] = useState(false)
   const [showCheckinModal, setShowCheckinModal] = useState(false)
+  const [showAnalysisModal, setShowAnalysisModal] = useState(false)
   const [checkinData, setCheckinData] = useState({
     mood: "",
     energy_level: 5,
@@ -124,6 +126,11 @@ export const WellnessScreen: FC<WellnessScreenProps> = function WellnessScreen()
              level >= 4 ? theme.colors.palette.accent500 : 
              theme.colors.palette.primary500
     }
+  }
+
+  const handleAnalysisComplete = (result: WellnessAnalysisResult) => {
+    console.log('Wellness analysis completed:', result)
+    // You could save the analysis result or show a success message
   }
 
   useEffect(() => {
@@ -298,6 +305,11 @@ export const WellnessScreen: FC<WellnessScreenProps> = function WellnessScreen()
             onPress={() => setShowCheckinModal(true)}
             style={themed($checkinButton)}
           />
+          <Button
+            text="Wellness Analysis"
+            onPress={() => setShowAnalysisModal(true)}
+            style={themed($analysisButton)}
+          />
         </View>
 
         <FlatList
@@ -320,6 +332,30 @@ export const WellnessScreen: FC<WellnessScreenProps> = function WellnessScreen()
       </AnimatedScreenWrapper>
 
       {renderCheckinModal()}
+      
+      {/* Wellness Analysis Modal */}
+      <Modal
+        visible={showAnalysisModal}
+        animationType="slide"
+        presentationStyle="pageSheet"
+        onRequestClose={() => setShowAnalysisModal(false)}
+      >
+        <View style={themed($modalContainer)}>
+          <View style={themed($modalHeader)}>
+            <Text preset="heading" style={themed($modalTitle)}>
+              Wellness Analysis
+            </Text>
+            <TouchableOpacity
+              onPress={() => setShowAnalysisModal(false)}
+              style={themed($closeButton)}
+            >
+              <Text style={themed($closeButtonText)}>✕</Text>
+            </TouchableOpacity>
+          </View>
+          
+          <WellnessAnalysis onAnalysisComplete={handleAnalysisComplete} />
+        </View>
+      </Modal>
     </Screen>
   )
 }
@@ -342,11 +378,19 @@ const $headerSubtitle: ThemedStyle<TextStyle> = ({ colors }) => ({
 })
 
 const $actionsContainer: ThemedStyle<ViewStyle> = ({ spacing }) => ({
+  flexDirection: "row",
+  gap: spacing.sm,
   marginBottom: spacing.lg,
 })
 
 const $checkinButton: ThemedStyle<ViewStyle> = ({ colors }) => ({
+  flex: 1,
   backgroundColor: colors.palette.primary500,
+})
+
+const $analysisButton: ThemedStyle<ViewStyle> = ({ colors }) => ({
+  flex: 1,
+  backgroundColor: colors.palette.accent500,
 })
 
 const $listContainer: ThemedStyle<ViewStyle> = ({ spacing }) => ({

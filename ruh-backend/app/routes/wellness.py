@@ -90,3 +90,97 @@ def get_wellness_stats():
         }), 200
     except Exception as e:
         return jsonify({"error": str(e)}), 500
+
+@wellness_bp.route('/wellness/categories', methods=['GET'])
+def get_wellness_categories():
+    """
+    Get all available wellness categories
+    """
+    try:
+        wellness_service = WellnessService()
+        
+        categories = wellness_service.get_wellness_categories()
+        
+        return jsonify({
+            "categories": categories,
+            "total_categories": len(categories)
+        }), 200
+        
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@wellness_bp.route('/wellness/analyze', methods=['POST'])
+def analyze_wellness_need():
+    """
+    Analyze user input to provide personalized Quranic guidance for wellness needs
+    """
+    try:
+        wellness_service = WellnessService()
+        
+        data = request.get_json()
+        
+        if not data or 'user_input' not in data:
+            return jsonify({"error": "Missing required field: user_input"}), 400
+        
+        user_input = data['user_input']
+        max_verses = data.get('max_verses', 5)
+        
+        if not user_input.strip():
+            return jsonify({"error": "User input cannot be empty"}), 400
+        
+        analysis_result = wellness_service.analyze_wellness_need(user_input, max_verses)
+        
+        return jsonify({
+            "success": True,
+            "analysis": analysis_result
+        }), 200
+        
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@wellness_bp.route('/wellness/category/<category_id>/verses', methods=['GET'])
+def get_category_verses(category_id):
+    """
+    Get verses for a specific wellness category
+    """
+    try:
+        wellness_service = WellnessService()
+        
+        max_verses = request.args.get('max_verses', 10, type=int)
+        result = wellness_service.get_category_verses(category_id, max_verses)
+        
+        return jsonify(result), 200
+        
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@wellness_bp.route('/wellness/guidance', methods=['POST'])
+def get_wellness_guidance():
+    """
+    Get personalized wellness guidance based on user input
+    """
+    try:
+        wellness_service = WellnessService()
+        
+        data = request.get_json()
+        
+        if not data or 'situation' not in data:
+            return jsonify({"error": "Missing required field: situation"}), 400
+        
+        situation = data['situation']
+        categories = data.get('categories', [])
+        
+        # Analyze the situation to get comprehensive guidance
+        analysis = wellness_service.analyze_wellness_need(situation, max_verses=3)
+        
+        return jsonify({
+            "success": True,
+            "situation": situation,
+            "guidance": analysis.get('guidance', ''),
+            "detected_categories": analysis.get('detected_categories', []),
+            "relevant_verses": analysis.get('verses', []),
+            "recommendations": analysis.get('recommendations', [])
+        }), 200
+        
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
