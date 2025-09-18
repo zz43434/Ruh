@@ -120,4 +120,23 @@ Respond naturally and conversationally with these guidelines:
 
 Remember: You're having a natural conversation with a friend, not delivering a formal religious lecture."""
 
+    def get_chapter_summary_prompt(self, chapter_number: int, chapter_name: str, verse_count: int, verses_sample: str = None) -> str:
+        """Generate a prompt for creating chapter summaries"""
+        
+        sample_context = ""
+        if verses_sample:
+            sample_context = f"\n\nSample verses from this chapter:\n{verses_sample}"
+        
+        return f"""You are an Islamic scholar creating a concise, meaningful summary for Chapter {chapter_number} of the Quran.
+
+Chapter Details:
+- Chapter Number: {chapter_number}
+- Chapter Name: {chapter_name}
+- Total Verses: {verse_count}{sample_context}
+
+Create a short summary that:
+- Captures the main themes and spiritual messages of this chapter
+
+Write in a warm, engaging tone that would inspire someone to read and reflect on this chapter."""
+
 PROMPT_TEMPLATES = PromptTemplates()

@@ -20,13 +20,54 @@ def get_chapters():
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
+@verses_bp.route('/chapters/search', methods=['GET', 'POST'])
+def search_chapters():
+    """
+    Search for Quranic chapters by theme or keyword using semantic search
+    """
+    try:
+        if request.method == 'GET':
+            theme = request.args.get('theme', '')
+            max_results = int(request.args.get('max_results', 10))
+            sort_by = request.args.get('sort_by', 'relevance')
+        else:
+            data = request.get_json()
+            theme = data.get('theme', '')
+            max_results = data.get('max_results', 10)
+            sort_by = data.get('sort_by', 'relevance')
+        
+        if not theme:
+            # Return all chapters if no search theme provided
+            chapters = verse_service.get_all_chapters()
+            return jsonify({
+                "chapters": chapters[:max_results],
+                "search_query": "",
+                "total_results": len(chapters)
+            }), 200
+        
+        results = verse_service.search_chapters_by_theme(
+            theme, max_results, sort_by
+        )
+        
+        return jsonify({
+            "chapters": results,
+            "search_query": theme,
+            "total_results": len(results)
+        }), 200
+        
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
 @verses_bp.route('/chapters/<int:surah_number>', methods=['GET'])
 def get_chapter_details(surah_number):
     """
     Get detailed information about a specific chapter including its verses with translations
     """
     try:
-        chapter = verse_service.get_chapter_with_verses(surah_number)
+        # Check if summary is explicitly requested via query parameter
+        include_summary = request.args.get('include_summary', 'false').lower() == 'true'
+        
+        chapter = verse_service.get_chapter_with_verses(surah_number, include_summary=include_summary)
         
         if not chapter:
             return jsonify({"error": "Chapter not found"}), 404

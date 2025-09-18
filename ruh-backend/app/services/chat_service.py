@@ -86,7 +86,7 @@ class ChatService:
             try:
                 semantic_verses = self.verse_service.search_verses_semantic(
                     user_message, 
-                    top_k=3, 
+                    max_results=3, 
                     min_similarity=0.3
                 )
                 relevant_verses.extend(semantic_verses)

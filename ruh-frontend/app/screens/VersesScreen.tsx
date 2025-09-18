@@ -51,17 +51,33 @@ export const VersesScreen: FC<VersesScreenProps> = function VersesScreen() {
     }
   }
 
-  const searchChapters = () => {
+  const searchChapters = async () => {
     if (!searchQuery.trim()) {
       setFilteredChapters(chapters)
       return
     }
 
-    const filtered = chapters.filter(chapter =>
-      chapter.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      chapter.surah_number.toString().includes(searchQuery)
-    )
-    setFilteredChapters(filtered)
+    try {
+      // Use semantic search API
+      const response = await api.searchChapters(searchQuery.trim(), 20)
+      if (response.kind === "ok") {
+        setFilteredChapters(response.chapters)
+      } else {
+        // Fallback to local filtering if API fails
+        const filtered = chapters.filter(chapter =>
+          chapter.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          chapter.surah_number.toString().includes(searchQuery)
+        )
+        setFilteredChapters(filtered)
+      }
+    } catch (error) {
+      // Fallback to local filtering if API fails
+      const filtered = chapters.filter(chapter =>
+        chapter.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        chapter.surah_number.toString().includes(searchQuery)
+      )
+      setFilteredChapters(filtered)
+    }
   }
 
   const clearSearch = () => {
@@ -74,7 +90,11 @@ export const VersesScreen: FC<VersesScreenProps> = function VersesScreen() {
   }, [])
 
   useEffect(() => {
-    searchChapters()
+    const delayedSearch = setTimeout(() => {
+      searchChapters()
+    }, 300) // Debounce search by 300ms
+
+    return () => clearTimeout(delayedSearch)
   }, [searchQuery, chapters])
 
   const handleChapterPress = (chapter: Chapter) => {
@@ -128,7 +148,7 @@ export const VersesScreen: FC<VersesScreenProps> = function VersesScreen() {
         <TextInput
           value={searchQuery}
           onChangeText={setSearchQuery}
-          placeholder="Search chapters..."
+          placeholder="Search chapters by theme, topic, or name..."
           style={themed($searchInput)}
           placeholderTextColor={theme.colors.palette.neutral500}
         />

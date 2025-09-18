@@ -37,6 +37,7 @@ export const ChapterDetailsScreen: FC<ChapterDetailsScreenProps> = function Chap
   const [translatingVerses, setTranslatingVerses] = useState<Set<number>>(new Set())
   const [translations, setTranslations] = useState<Map<number, string>>(new Map())
   const [isTranslatingAll, setIsTranslatingAll] = useState(false)
+  const [isSummaryExpanded, setIsSummaryExpanded] = useState(false)
 
   const loadChapterDetails = async (refresh = false) => {
     if (refresh) setRefreshing(true)
@@ -89,6 +90,17 @@ export const ChapterDetailsScreen: FC<ChapterDetailsScreenProps> = function Chap
     } finally {
       setIsTranslatingAll(false)
     }
+  }
+
+  const toggleSummaryExpansion = () => {
+    setIsSummaryExpanded(!isSummaryExpanded)
+  }
+
+  const getSummaryText = (summary: string, maxLength: number = 150) => {
+    if (isSummaryExpanded || summary.length <= maxLength) {
+      return summary
+    }
+    return summary.substring(0, maxLength) + "..."
   }
 
   useEffect(() => {
@@ -209,12 +221,19 @@ export const ChapterDetailsScreen: FC<ChapterDetailsScreenProps> = function Chap
           Chapter {chapterDetails.surah_number} • {chapterDetails.ayah_count} verses • {chapterDetails.revelation_place}
         </Text>
         
-        {/* Chapter Summary */}
+        {/* Chapter Summary - Collapsed Version */}
         {chapterDetails.summary && (
-          <View style={themed($summaryContainer)}>
+          <TouchableOpacity onPress={toggleSummaryExpansion} style={themed($summaryContainer)}>
             <Text style={themed($summaryTitle)}>Summary</Text>
-            <Text style={themed($summaryText)}>{chapterDetails.summary}</Text>
-          </View>
+            <Text style={themed($summaryText)}>
+              {getSummaryText(chapterDetails.summary)}
+            </Text>
+            {chapterDetails.summary.length > 150 && (
+               <Text style={themed($readMoreText)}>
+                 {isSummaryExpanded ? "Show less" : "Read more"}
+               </Text>
+             )}
+          </TouchableOpacity>
         )}
         
         {/* Translate All Button */}
@@ -230,6 +249,17 @@ export const ChapterDetailsScreen: FC<ChapterDetailsScreenProps> = function Chap
           </TouchableOpacity>
         </View>
       </View>
+
+      {/* Expanded Summary Above Verses */}
+      {chapterDetails.summary && isSummaryExpanded && (
+        <View style={themed($expandedSummaryContainer)}>
+          <Text style={themed($expandedSummaryTitle)}>Chapter Summary</Text>
+          <Text style={themed($expandedSummaryText)}>{chapterDetails.summary}</Text>
+          <TouchableOpacity onPress={toggleSummaryExpansion} style={themed($collapseButton)}>
+            <Text style={themed($collapseButtonText)}>Show less</Text>
+          </TouchableOpacity>
+        </View>
+      )}
 
       {/* Verses List */}
       <FlatList
@@ -537,4 +567,59 @@ const $headerBackButtonText: ThemedStyle<TextStyle> = ({ colors }) => ({
   color: colors.palette.primary600,
   fontSize: 16,
   fontWeight: "600",
+})
+
+const $readMoreText: ThemedStyle<TextStyle> = ({ colors, spacing }) => ({
+  color: colors.palette.primary600,
+  fontSize: 14,
+  fontWeight: "600",
+  marginTop: spacing.xs,
+  textAlign: "center",
+})
+
+const $expandedSummaryContainer: ThemedStyle<ViewStyle> = ({ spacing, colors }) => ({
+  backgroundColor: colors.palette.primary100,
+  borderRadius: 16,
+  padding: spacing.lg,
+  marginHorizontal: spacing.lg,
+  marginBottom: spacing.lg,
+  borderWidth: 1,
+  borderColor: colors.palette.primary200,
+  shadowColor: colors.palette.primary500,
+  shadowOffset: { width: 0, height: 2 },
+  shadowOpacity: 0.1,
+  shadowRadius: 8,
+  elevation: 3,
+})
+
+const $expandedSummaryTitle: ThemedStyle<TextStyle> = ({ colors, spacing }) => ({
+  fontSize: 20,
+  fontWeight: "700",
+  color: colors.palette.primary600,
+  marginBottom: spacing.md,
+  textAlign: "center",
+})
+
+const $expandedSummaryText: ThemedStyle<TextStyle> = ({ colors, spacing }) => ({
+  fontSize: 16,
+  lineHeight: 26,
+  color: colors.text,
+  marginBottom: spacing.md,
+  textAlign: "justify",
+})
+
+const $collapseButton: ThemedStyle<ViewStyle> = ({ colors, spacing }) => ({
+  backgroundColor: colors.palette.primary500,
+  paddingHorizontal: spacing.md,
+  paddingVertical: spacing.sm,
+  borderRadius: 8,
+  alignSelf: "center",
+  marginTop: spacing.sm,
+})
+
+const $collapseButtonText: ThemedStyle<TextStyle> = ({ colors }) => ({
+  color: colors.palette.neutral100,
+  fontSize: 14,
+  fontWeight: "600",
+  textAlign: "center",
 })

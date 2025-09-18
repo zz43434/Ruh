@@ -30,7 +30,7 @@ import type {
  */
 export const DEFAULT_API_CONFIG: ApiConfig = {
   url: Config.API_URL,
-  timeout: 10000,
+  timeout: 30000,
 }
 
 /**
@@ -143,6 +143,34 @@ export class Api {
   async getChapters(): Promise<{ kind: "ok"; chapters: Chapter[] } | GeneralApiProblem> {
     // make the api call
     const response: ApiResponse<ChaptersResponse> = await this.apisauce.get(`/chapters`)
+
+    // the typical ways to die when calling an api
+    if (!response.ok) {
+      const problem = getGeneralApiProblem(response)
+      if (problem) return problem
+    }
+
+    // transform the data into the format we are expecting
+    try {
+      const rawData = response.data
+      
+      // This is where we transform the data into the shape the app expects.
+      const chapters: Chapter[] = rawData?.chapters || []
+      return { kind: "ok", chapters }
+    } catch (e) {
+      if (__DEV__ && e instanceof Error) {
+        console.error(`Bad data: ${e.message}\n${response.data}`, e.stack)
+      }
+      return { kind: "bad-data" }
+    }
+  }
+
+  async searchChapters(query: string, maxResults: number = 10): Promise<{ kind: "ok"; chapters: Chapter[] } | GeneralApiProblem> {
+    // make the api call
+    const response: ApiResponse<ChaptersResponse> = await this.apisauce.get(`/chapters/search`, {
+      theme: query,
+      max_results: maxResults
+    })
 
     // the typical ways to die when calling an api
     if (!response.ok) {
