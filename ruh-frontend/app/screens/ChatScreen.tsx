@@ -214,7 +214,7 @@ export const ChatScreen: FC = function ChatScreen() {
   }
 
   const handleKeyPress = (event: any) => {
-    if (event.nativeEvent.key === 'Enter' && !event.nativeEvent.shiftKey) {
+    if (Platform.OS === 'web' && event.nativeEvent.key === 'Enter' && !event.nativeEvent.shiftKey) {
       event.preventDefault()
       sendMessage()
     }
@@ -304,8 +304,8 @@ export const ChatScreen: FC = function ChatScreen() {
     <Screen preset="fixed" contentContainerStyle={$styles.flex1}>
       <KeyboardAvoidingView
         style={$styles.flex1}
-        behavior={Platform.OS === "ios" ? "padding" : "height"}
-        keyboardVerticalOffset={Platform.OS === "ios" ? 0 : 20}
+        behavior={Platform.OS === "ios" ? "padding" : undefined}
+        keyboardVerticalOffset={Platform.OS === "ios" ? 0 : 0}
       >
         <View style={themed($header)}>
           <Text preset="heading" style={themed($headerTitle)}>

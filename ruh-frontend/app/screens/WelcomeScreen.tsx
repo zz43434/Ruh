@@ -41,13 +41,29 @@ export const WelcomeScreen: FC<AppStackScreenProps<"Welcome">> = function Welcom
 
       <View style={themed([$bottomContainer, $bottomContainerInsets])}>
           <Text tx="welcomeScreen:postscript" size="md" />
-          <Button
-            testID="start-chat-button"
-            text="Start Chat"
-            style={themed($startChatButton)}
-            preset="reversed"
-            onPress={() => navigation.navigate("Chat")}
-          />
+          <View style={themed($buttonsContainer)}>
+            <Button
+              testID="start-chat-button"
+              text="💬 Chat"
+              style={themed($navigationButton)}
+              preset="reversed"
+              onPress={() => navigation.navigate("MainTabs", { screen: "Chat" })}
+            />
+            <Button
+              testID="verses-button"
+              text="📖 Verses"
+              style={themed($navigationButton)}
+              preset="reversed"
+              onPress={() => navigation.navigate("MainTabs", { screen: "Verses" })}
+            />
+            <Button
+              testID="wellness-button"
+              text="💚 Wellness"
+              style={themed($navigationButton)}
+              preset="reversed"
+              onPress={() => navigation.navigate("MainTabs", { screen: "Wellness" })}
+            />
+          </View>
         </View>
     </Screen>
   )
@@ -89,6 +105,15 @@ const $welcomeFace: ThemedStyle<ImageStyle> = ({ colors }) => ({
 
 const $startChatButton: ThemedStyle<ViewStyle> = ({ colors, spacing }) => ({
   marginTop: spacing.xl,
+  backgroundColor: colors.palette.primary500,
+})
+
+const $buttonsContainer: ThemedStyle<ViewStyle> = ({ spacing }) => ({
+  marginTop: spacing.xl,
+  gap: spacing.md,
+})
+
+const $navigationButton: ThemedStyle<ViewStyle> = ({ colors }) => ({
   backgroundColor: colors.palette.primary500,
 })
 
