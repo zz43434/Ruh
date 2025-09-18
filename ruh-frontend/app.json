@@ -27,8 +27,7 @@
   "ios": {
     "icon": "./assets/images/app-icon-ios.png",
     "supportsTablet": true,
-    "bundleIdentifier": "com.ruhfrontend",
-    "deploymentTarget": "17.0"
+    "bundleIdentifier": "com.ruhfrontend"
   },
   "web": {
     "favicon": "./assets/images/app-icon-web-favicon.png",

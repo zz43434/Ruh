@@ -17,6 +17,12 @@ module.exports = ({ config }: ConfigContext): Partial<ExpoConfig> => {
 
   return {
     ...config,
+    extra: {
+      ...config.extra,
+      eas: {
+        projectId: "ba6669ac-9c28-4046-b201-effe82cfa2f6"
+      }
+    },
     ios: {
       ...config.ios,
       // This privacyManifests is to get you started.

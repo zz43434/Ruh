@@ -47,9 +47,6 @@ DATABASE_URL=postgresql+psycopg2://postgres:postgres@localhost:5432/ruh_db
 # Groq API Configuration
 GROQ_API_KEY=your-groq-api-key-here
 
-# Rate Limiting
-RATELIMIT_DEFAULT=200 per day;50 per hour
-
 # CORS Configuration
 CORS_ORIGINS=http://localhost:3000,http://localhost:19006
 ```
