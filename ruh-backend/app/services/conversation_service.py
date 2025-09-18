@@ -2,85 +2,62 @@ import uuid
 from datetime import datetime
 from typing import List, Dict, Optional
 from app.services.verse_service import VerseService
+from app.models.database import get_db
+from app.models.conversation import Conversation, Message
+from sqlalchemy.orm import Session
 
 class ConversationService:
     def __init__(self):
-        # In-memory storage (use database in production)
-        self.conversations = {}  # conversation_id -> conversation_data
-        self.user_conversations = {}  # user_id -> [conversation_ids]
         self.verse_service = VerseService()
 
-    def start_conversation(self, user_id: str, initial_message: Optional[str] = None) -> Dict:
+    def start_conversation(self, user_id: str, initial_message: Optional[str] = None, db: Session = None) -> Dict:
         """Start a new conversation for a user."""
-        conversation_id = str(uuid.uuid4())
-        conversation = {
-            'id': conversation_id,
-            'user_id': user_id,
-            'created_at': datetime.utcnow().isoformat(),
-            'updated_at': datetime.utcnow().isoformat(),
-            'status': 'active',
-            'messages': []
-        }
-        
+        conversation = Conversation(user_id=user_id)
         if initial_message:
-            conversation['messages'].append({
-                'id': str(uuid.uuid4()),
-                'sender': 'user',
-                'content': initial_message,
-                'timestamp': datetime.utcnow().isoformat()
-            })
-        
-        self.conversations[conversation_id] = conversation
-        
-        if user_id not in self.user_conversations:
-            self.user_conversations[user_id] = []
-        self.user_conversations[user_id].append(conversation_id)
-        
+            message = Message(conversation_id=conversation.id, sender="user", content=initial_message)
+            conversation.messages.append(message)
+        db.add(conversation)
+        db.commit()
+        db.refresh(conversation)
         return conversation
 
     def get_conversation_history(self, user_id: str, limit: int = 20, offset: int = 0) -> List[Dict]:
         """Get conversation history for a user."""
-        if user_id not in self.user_conversations:
-            return []
-        
-        conversation_ids = self.user_conversations[user_id]
-        conversations = [self.conversations[cid] for cid in conversation_ids if cid in self.conversations]
-        
-        # Sort by updated_at descending
-        conversations.sort(key=lambda x: x['updated_at'], reverse=True)
-        
-        return conversations[offset:offset + limit]
+        db = get_db()
+        conversations = db.query(Conversation).filter(Conversation.user_id == user_id).order_by(Conversation.updated_at.desc()).offset(offset).limit(limit).all()
+        return [self._convert_to_dict(convo) for convo in conversations]
 
     def send_message(self, conversation_id: str, sender: str, content: str) -> Dict:
         """Send a message in a conversation."""
-        if conversation_id not in self.conversations:
+        db = get_db()
+        conversation = db.query(Conversation).filter(Conversation.id == conversation_id).first()
+        if not conversation:
             raise ValueError("Conversation not found")
         
-        conversation = self.conversations[conversation_id]
-        message = {
-            'id': str(uuid.uuid4()),
-            'sender': sender,
-            'content': content,
-            'timestamp': datetime.utcnow().isoformat()
-        }
-        
-        conversation['messages'].append(message)
-        conversation['updated_at'] = datetime.utcnow().isoformat()
-        
-        return message
+        message = Message(conversation_id=conversation_id, sender=sender, content=content)
+        db.add(message)
+        conversation.updated_at = datetime.utcnow()
+        db.commit()
+        db.refresh(conversation)
+        return self._convert_message_to_dict(message)
 
     def end_conversation(self, conversation_id: str) -> bool:
         """End a conversation."""
-        if conversation_id not in self.conversations:
+        db = get_db()
+        conversation = db.query(Conversation).filter(Conversation.id == conversation_id).first()
+        if not conversation:
             return False
         
-        self.conversations[conversation_id]['status'] = 'ended'
-        self.conversations[conversation_id]['updated_at'] = datetime.utcnow().isoformat()
+        conversation.status = 'ended'
+        conversation.updated_at = datetime.utcnow()
+        db.commit()
         return True
 
     def get_conversation_by_id(self, conversation_id: str) -> Optional[Dict]:
         """Get a specific conversation by ID."""
-        return self.conversations.get(conversation_id)
+        db = get_db()
+        conversation = db.query(Conversation).filter(Conversation.id == conversation_id).first()
+        return self._convert_to_dict(conversation) if conversation else None
 
     def _generate_ai_response(self, user_message: str) -> str:
         """Generate AI response based on user message."""
@@ -141,3 +118,25 @@ class ConversationService:
             if any(word in content for word in ['forgiveness', 'sin', 'repent']):
                 topics.add('forgiveness')
         return list(topics)
+
+    def _convert_to_dict(self, conversation: Conversation) -> Dict:
+        """Convert Conversation SQLAlchemy object to dict."""
+        if not conversation:
+            return {}
+        return {
+            'id': conversation.id,
+            'user_id': conversation.user_id,
+            'created_at': conversation.created_at.isoformat(),
+            'updated_at': conversation.updated_at.isoformat(),
+            'status': conversation.status,
+            'messages': [self._convert_message_to_dict(msg) for msg in conversation.messages]
+        }
+
+    def _convert_message_to_dict(self, message: Message) -> Dict:
+        """Convert Message SQLAlchemy object to dict."""
+        return {
+            'id': message.id,
+            'sender': message.sender,
+            'content': message.content,
+            'timestamp': message.timestamp.isoformat()
+        }

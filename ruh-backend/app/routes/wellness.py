@@ -3,7 +3,7 @@ from app.services.wellness_service import WellnessService
 from app.models.database import get_db
 
 wellness_bp = Blueprint('wellness', __name__)
-db = get_db()
+db = next(get_db())
 wellness_service = WellnessService(db=db)
 
 @wellness_bp.route('/wellness/checkin', methods=['POST'])
