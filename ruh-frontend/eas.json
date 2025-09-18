@@ -11,7 +11,8 @@
       },
       "ios": {
         "buildConfiguration": "Debug",
-        "simulator": true
+        "simulator": true,
+        "image": "macos-sequoia-15.3-xcode-16.2"
       }
     },
     "development:device": {
@@ -19,7 +20,8 @@
       "distribution": "internal",
       "ios": {
         "buildConfiguration": "Debug",
-        "simulator": false
+        "simulator": false,
+        "image": "macos-sequoia-15.3-xcode-16.2"
       }
     },
     "preview": {
@@ -32,7 +34,11 @@
       "extends": "preview",
       "ios": { "simulator": false }
     },
-    "production": {}
+    "production": {
+      "ios": {
+        "image": "macos-sequoia-15.3-xcode-16.2"
+      }
+    }
   },
   "submit": {
     "production": {}
