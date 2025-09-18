@@ -11,7 +11,8 @@ def create_app():
     app.config.from_object(Config)
     
     # Enable CORS
-    CORS(app)
+    cors_origins = Config.CORS_ORIGINS if Config.CORS_ORIGINS and Config.CORS_ORIGINS != [''] else "*"
+    CORS(app, origins=cors_origins)
     
     # Initialize rate limiting
     limiter.init_app(app)

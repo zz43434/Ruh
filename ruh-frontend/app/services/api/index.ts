@@ -14,6 +14,7 @@ import type {
   ChatInitResponse, 
   ChatMessage, 
   ChatResponse, 
+  VerseChoiceMessage,
   WellnessCheckin, 
   WellnessResponse, 
   WellnessHistory, 
@@ -65,6 +66,17 @@ export class Api {
 
   async sendChatMessage(message: ChatMessage): Promise<{ kind: "ok"; data: ChatResponse } | { kind: "error"; error: any }> {
     const response = await this.apisauce.post("/chat", message)
+
+    if (!response.ok) {
+      const problem = getGeneralApiProblem(response)
+      if (problem) return { kind: "error", error: problem }
+    }
+
+    return { kind: "ok", data: response.data as ChatResponse }
+  }
+
+  async sendVerseChoice(verseChoice: VerseChoiceMessage): Promise<{ kind: "ok"; data: ChatResponse } | { kind: "error"; error: any }> {
+    const response = await this.apisauce.post("/chat/verse-choice", verseChoice)
 
     if (!response.ok) {
       const problem = getGeneralApiProblem(response)

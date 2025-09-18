@@ -1,18 +1,21 @@
 import { FC } from "react"
 import { Image, ImageStyle, TextStyle, View, ViewStyle } from "react-native"
-
+import { useSafeAreaInsetsStyle } from "@/utils/useSafeAreaInsetsStyle"
+import { Button } from "@/components/Button"
 import { Screen } from "@/components/Screen"
 import { Text } from "@/components/Text"
-import { isRTL } from "@/i18n"
 import { useAppTheme } from "@/theme/context"
+import { AppStackScreenProps } from "@/navigators/AppNavigator"
+import { isRTL } from "@/i18n"
 import { $styles } from "@/theme/styles"
 import type { ThemedStyle } from "@/theme/types"
-import { useSafeAreaInsetsStyle } from "@/utils/useSafeAreaInsetsStyle"
 
 const welcomeLogo = require("@assets/images/logo.png")
 const welcomeFace = require("@assets/images/welcome-face.png")
 
-export const WelcomeScreen: FC = function WelcomeScreen() {
+export const WelcomeScreen: FC<AppStackScreenProps<"Welcome">> = function WelcomeScreen({
+  navigation,
+}) {
   const { themed, theme } = useAppTheme()
 
   const $bottomContainerInsets = useSafeAreaInsetsStyle(["bottom"])
@@ -29,7 +32,7 @@ export const WelcomeScreen: FC = function WelcomeScreen() {
         />
         <Text tx="welcomeScreen:exciting" preset="subheading" />
         <Image
-          style={$welcomeFace}
+          style={themed($welcomeFace)}
           source={welcomeFace}
           resizeMode="contain"
           tintColor={theme.colors.palette.neutral900}
@@ -37,8 +40,15 @@ export const WelcomeScreen: FC = function WelcomeScreen() {
       </View>
 
       <View style={themed([$bottomContainer, $bottomContainerInsets])}>
-        <Text tx="welcomeScreen:postscript" size="md" />
-      </View>
+          <Text tx="welcomeScreen:postscript" size="md" />
+          <Button
+            testID="start-chat-button"
+            text="Start Chat"
+            style={themed($startChatButton)}
+            preset="reversed"
+            onPress={() => navigation.navigate("Chat")}
+          />
+        </View>
     </Screen>
   )
 }
@@ -68,14 +78,19 @@ const $welcomeLogo: ThemedStyle<ImageStyle> = ({ spacing }) => ({
   marginBottom: spacing.xxl,
 })
 
-const $welcomeFace: ImageStyle = {
+const $welcomeFace: ThemedStyle<ImageStyle> = ({ colors }) => ({
   height: 169,
   width: 269,
   position: "absolute",
   bottom: -47,
   right: -80,
   transform: [{ scaleX: isRTL ? -1 : 1 }],
-}
+})
+
+const $startChatButton: ThemedStyle<ViewStyle> = ({ colors, spacing }) => ({
+  marginTop: spacing.xl,
+  backgroundColor: colors.palette.primary500,
+})
 
 const $welcomeHeading: ThemedStyle<TextStyle> = ({ spacing }) => ({
   marginBottom: spacing.md,

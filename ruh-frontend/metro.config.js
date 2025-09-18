@@ -1,6 +1,7 @@
 /* eslint-env node */
 // Learn more https://docs.expo.io/guides/customizing-metro
 const { getDefaultConfig } = require("expo/metro-config")
+const path = require("path")
 
 /** @type {import('expo/metro-config').MetroConfig} */
 const config = getDefaultConfig(__dirname)
@@ -15,6 +16,12 @@ config.transformer.getTransformOptions = async () => ({
     inlineRequires: true,
   },
 })
+
+// Configure path aliases for Metro
+config.resolver.alias = {
+  "@": path.resolve(__dirname, "app"),
+  "@assets": path.resolve(__dirname, "assets"),
+}
 
 // This is a temporary fix that helps fixing an issue with axios/apisauce.
 // See the following issues in Github for more details:

@@ -44,6 +44,15 @@ export interface ChatInitResponse {
 export interface ChatMessage {
   message: string
   conversation_id: string
+  user_id?: string
+}
+
+export interface VerseChoiceMessage {
+  choice: string
+  conversation_id: string
+  message_id: string
+  original_message: string
+  user_id?: string
 }
 
 export interface ChatResponse {
@@ -53,10 +62,24 @@ export interface ChatResponse {
     verse: number
     text: string
     translation: string
+    arabic_text?: string
+    surah_name?: string
+    verse_number?: number
   }>
   response: string
   sentiment: string
+  themes: string[]
+  intent?: string
   timestamp: string
+  verse_offer?: {
+    show_options: boolean
+    message: string
+    options: Array<{
+      id: string
+      text: string
+      type: string
+    }>
+  }
 }
 
 export interface WellnessCheckin {

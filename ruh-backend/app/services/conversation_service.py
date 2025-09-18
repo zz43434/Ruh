@@ -63,6 +63,29 @@ class ConversationService:
         finally:
             db.close()
 
+    def get_or_create_conversation(self, user_id: str) -> Dict:
+        """Get the most recent active conversation for a user or create a new one."""
+        db = SessionLocal()
+        try:
+            # Look for the most recent active conversation
+            conversation = (db.query(Conversation)
+                          .filter(Conversation.user_id == user_id)
+                          .filter(Conversation.status == 'active')
+                          .order_by(Conversation.updated_at.desc())
+                          .first())
+            
+            if conversation:
+                return self._convert_to_dict(conversation)
+            else:
+                # Create a new conversation
+                return self.start_conversation(user_id)
+        finally:
+            db.close()
+
+    def add_message(self, conversation_id: str, content: str, sender: str) -> Dict:
+        """Add a message to a conversation."""
+        return self.send_message(conversation_id, sender, content)
+
     def end_conversation(self, conversation_id: str) -> bool:
         """End a conversation."""
         db = SessionLocal()

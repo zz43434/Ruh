@@ -45,6 +45,52 @@ def chat():
             "details": str(e)
         }), 500
 
+@chat_bp.route('/chat/verse-choice', methods=['POST'])
+@limiter.limit("10 per minute")
+def handle_verse_choice():
+    """
+    Handle user's choice about viewing verses
+    """
+    # Validate request
+    if not request.is_json:
+        return jsonify({"error": "Request must be JSON"}), 400
+    
+    data = request.get_json()
+    
+    # Debug logging to see what data we're receiving
+    print(f"DEBUG: Received verse choice request with message_id: {data.get('message_id')}")
+    print(f"DEBUG: Choice: {data.get('choice')}")
+    
+    # Validate required fields
+    required_fields = ['choice', 'conversation_id', 'message_id', 'original_message']
+    for field in required_fields:
+        if field not in data:
+            return jsonify({"error": f"{field} is required"}), 400
+    
+    choice = data['choice']
+    conversation_id = data['conversation_id']
+    message_id = data['message_id']
+    original_message = data['original_message']
+    user_id = data.get('user_id', 'anonymous')
+    
+    try:
+        # Process the verse choice through the service layer
+        result = chat_service.handle_verse_choice(
+            user_id=user_id,
+            conversation_id=conversation_id,
+            choice=choice,
+            message_id=message_id,
+            original_message=original_message
+        )
+        
+        return jsonify(result), 200
+        
+    except Exception as e:
+        return jsonify({
+            "error": "Failed to process verse choice",
+            "details": str(e)
+        }), 500
+
 @chat_bp.route('/chat/init', methods=['GET'])
 def get_initial_message():
     """
