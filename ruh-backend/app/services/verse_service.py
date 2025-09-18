@@ -8,18 +8,26 @@ from app.core.groq_client import groq_client
 from app.core.prompts import PROMPT_TEMPLATES
 
 class VerseService:
+    _instance = None
+    _initialized = False
+    
+    def __new__(cls):
+        if cls._instance is None:
+            cls._instance = super(VerseService, cls).__new__(cls)
+        return cls._instance
+    
     def __init__(self):
-        self.verses_data = self._load_verses_data()
-        self.translations_data = self._load_translations_data()
-        self.all_verses = self._flatten_verses()
-        
-        # Initialize RAG components
-        self.embedding_service = EmbeddingService()
-        self.vector_store_manager = VectorStoreManager()
-        self.verse_store = self.vector_store_manager.get_store("verses")
-        
-        # Load or create embeddings
-        self._initialize_embeddings()
+        if not self._initialized:
+            self.verses_data = self._load_verses_data()
+            self.translations_data = self._load_translations_data()
+            self.all_verses = self._flatten_verses()
+            
+            # Initialize RAG components lazily
+            self.embedding_service = None
+            self.vector_store_manager = None
+            self.verse_store = None
+            
+            VerseService._initialized = True
 
     def _load_verses_data(self) -> List[Dict]:
         """
@@ -111,6 +119,9 @@ class VerseService:
             return []
         
         try:
+            # Ensure embeddings are initialized only when needed
+            self._ensure_embeddings_initialized()
+            
             # Try semantic search first
             similar_verses = self.embedding_service.find_similar_verses(
                 query=theme, 
@@ -135,22 +146,24 @@ class VerseService:
     
     def search_verses_semantic(self, query: str, max_results: int = 5, min_similarity: float = 0.1) -> List[Tuple[Dict, float]]:
         """
-        Perform semantic search for verses using embeddings.
-        
-        Args:
-            query: The search query
-            max_results: Maximum number of results to return
-            min_similarity: Minimum similarity threshold
-            
-        Returns:
-            List of tuples (verse_data, similarity_score)
+        Search verses using semantic similarity.
+        Returns list of tuples (verse_dict, similarity_score).
         """
         try:
-            return self.embedding_service.find_similar_verses(
-                query=query,
-                top_k=max_results,
-                min_similarity=min_similarity
+            # Ensure embeddings are initialized only when needed
+            self._ensure_embeddings_initialized()
+            
+            # Try semantic search first
+            similar_verses = self.embedding_service.find_similar_verses(
+                query, max_results, min_similarity
             )
+            
+            if similar_verses:
+                return similar_verses
+            else:
+                # If no semantic results, return empty list
+                return []
+                
         except Exception as e:
             print(f"Error in semantic search: {e}")
             return []
@@ -171,6 +184,16 @@ class VerseService:
         
         # Limit results
         return matching_verses[:max_results]
+    
+    def _ensure_embeddings_initialized(self):
+        """
+        Lazy initialization of embedding components only when needed.
+        """
+        if self.embedding_service is None:
+            self.embedding_service = EmbeddingService()
+            self.vector_store_manager = VectorStoreManager()
+            self.verse_store = self.vector_store_manager.get_store("verses")
+            self._initialize_embeddings()
     
     def _initialize_embeddings(self):
         """
@@ -223,6 +246,9 @@ class VerseService:
         """
         Get statistics about the embedding system.
         """
+        # Only initialize if embeddings are needed
+        self._ensure_embeddings_initialized()
+        
         embedding_stats = self.embedding_service.get_embedding_stats()
         vector_store_stats = self.verse_store.get_stats()
         
@@ -362,23 +388,42 @@ class VerseService:
         # Limit results
         return matching_chapters[:max_results]
 
-    def get_chapter_with_verses(self, surah_number: int, include_summary: bool = False) -> Optional[Dict]:
+    def get_chapter_with_verses(self, surah_number: int, include_summary: bool = False, include_translations: bool = True) -> Optional[Dict]:
         """
-        Get a chapter with all its verses. Shows translation if available, otherwise shows Arabic text only.
+        Get a chapter with all its verses. Optionally includes translations and summary.
         
         Args:
             surah_number: The chapter number
             include_summary: Whether to generate and include AI summary (default: False)
+            include_translations: Whether to include translations (default: True)
         """
         surah_info = self.get_surah_info(surah_number)
         if not surah_info:
             return None
             
-        # Get all verses for this surah (whether they have translations or not)
-        all_surah_verses = [
-            verse for verse in self.all_verses 
-            if verse['surah_number'] == surah_number
-        ]
+        # Get verses for this surah - optimize by filtering early
+        if include_translations:
+            # Include full verse data with translations
+            all_surah_verses = [
+                verse for verse in self.all_verses 
+                if verse['surah_number'] == surah_number
+            ]
+        else:
+            # Only include basic verse data without translations for better performance
+            all_surah_verses = []
+            for surah in self.verses_data:
+                if surah['surah_number'] == surah_number:
+                    for verse in surah.get('verses', []):
+                        verse_data = {
+                            'verse_number': verse['verse_number'],
+                            'arabic_text': verse['arabic_text'],
+                            'surah_number': surah['surah_number'],
+                            'surah_name': surah['name'],
+                            'ayah_count': surah['ayah_count'],
+                            'revelation_place': surah['revelation_place']
+                        }
+                        all_surah_verses.append(verse_data)
+                    break
         
         chapter_data = {
             'surah_number': surah_info['surah_number'],

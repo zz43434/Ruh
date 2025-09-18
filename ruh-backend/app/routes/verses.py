@@ -67,7 +67,14 @@ def get_chapter_details(surah_number):
         # Check if summary is explicitly requested via query parameter
         include_summary = request.args.get('include_summary', 'false').lower() == 'true'
         
-        chapter = verse_service.get_chapter_with_verses(surah_number, include_summary=include_summary)
+        # Check if translations should be included (default: false for better performance)
+        include_translations = request.args.get('include_translations', 'false').lower() == 'true'
+        
+        chapter = verse_service.get_chapter_with_verses(
+            surah_number, 
+            include_summary=include_summary,
+            include_translations=include_translations
+        )
         
         if not chapter:
             return jsonify({"error": "Chapter not found"}), 404

@@ -1,4 +1,4 @@
-import React, { FC, useEffect, useState } from "react"
+import React, { FC, useEffect, useState, useRef } from "react"
 import {
   View,
   ViewStyle,
@@ -13,7 +13,7 @@ import { Text } from "@/components/Text"
 import { Button } from "@/components/Button"
 import { useAppTheme } from "@/theme/context"
 import type { ThemedStyle } from "@/theme/types"
-import { useNavigation, useRoute } from "@react-navigation/native"
+import { useNavigation, useRoute, useFocusEffect } from "@react-navigation/native"
 import type { NativeStackNavigationProp, NativeStackScreenProps } from "@react-navigation/native-stack"
 import type { AppStackParamList } from "@/navigators/AppNavigator"
 import { api } from "@/services/api"
@@ -38,6 +38,53 @@ export const ChapterDetailsScreen: FC<ChapterDetailsScreenProps> = function Chap
   const [translations, setTranslations] = useState<Map<number, string>>(new Map())
   const [isTranslatingAll, setIsTranslatingAll] = useState(false)
   const [isSummaryExpanded, setIsSummaryExpanded] = useState(false)
+
+  // Ref to track if component is mounted to prevent state updates after unmount
+  const isMountedRef = useRef(true)
+  // Ref to track ongoing translation requests for cleanup
+  const translationAbortControllersRef = useRef<Map<number, AbortController>>(new Map())
+  const translateAllAbortControllerRef = useRef<AbortController | null>(null)
+
+  // Cleanup function to cancel all ongoing translations
+  const cancelAllTranslations = () => {
+    // Cancel individual verse translations
+    translationAbortControllersRef.current.forEach((controller) => {
+      controller.abort()
+    })
+    translationAbortControllersRef.current.clear()
+
+    // Cancel translate all operation
+    if (translateAllAbortControllerRef.current) {
+      translateAllAbortControllerRef.current.abort()
+      translateAllAbortControllerRef.current = null
+    }
+
+    // Reset translation states
+    if (isMountedRef.current) {
+      setTranslatingVerses(new Set())
+      setIsTranslatingAll(false)
+    }
+  }
+
+  // Setup cleanup on component unmount and navigation
+  useEffect(() => {
+    isMountedRef.current = true
+    
+    return () => {
+      isMountedRef.current = false
+      cancelAllTranslations()
+    }
+  }, [])
+
+  // Listen for navigation events to cancel translations when going back
+  useFocusEffect(
+    React.useCallback(() => {
+      return () => {
+        // This runs when the screen loses focus (e.g., when navigating back)
+        cancelAllTranslations()
+      }
+    }, [])
+  )
 
   const loadChapterDetails = async (refresh = false) => {
     if (refresh) setRefreshing(true)
@@ -65,30 +112,54 @@ export const ChapterDetailsScreen: FC<ChapterDetailsScreenProps> = function Chap
   const handleTranslateAll = async () => {
     if (!chapterDetails?.verses || isTranslatingAll) return
 
+    // Create abort controller for this translate all operation
+    const abortController = new AbortController()
+    translateAllAbortControllerRef.current = abortController
+
     setIsTranslatingAll(true)
     
     try {
       const versesToTranslate = chapterDetails.verses.filter((_, index) => !translations.has(index))
       
       for (let i = 0; i < versesToTranslate.length; i++) {
+        // Check if operation was aborted
+        if (abortController.signal.aborted) {
+          break
+        }
+
         const verse = versesToTranslate[i]
         const originalIndex = chapterDetails.verses.findIndex(v => v === verse)
         
         try {
           const response = await api.translateVerse(verse.arabic_text || verse.text || "")
+          
+          // Check if operation was aborted or component unmounted
+          if (abortController.signal.aborted || !isMountedRef.current) {
+            break
+          }
+
           if (response.kind === "ok") {
             setTranslations(prev => new Map(prev).set(originalIndex, response.translation))
             // Save translation to persistent storage
             await translationStorage.saveTranslation(surahNumber, originalIndex, response.translation)
           }
         } catch (error) {
+          // Check if error is due to abort
+          if (abortController.signal.aborted) {
+            break
+          }
           console.error(`Failed to translate verse ${originalIndex + 1}:`, error)
         }
       }
     } catch (error) {
-      Alert.alert("Error", "Failed to translate all verses")
+      if (!abortController.signal.aborted) {
+        Alert.alert("Error", "Failed to translate all verses")
+      }
     } finally {
-      setIsTranslatingAll(false)
+      if (isMountedRef.current && !abortController.signal.aborted) {
+        setIsTranslatingAll(false)
+      }
+      translateAllAbortControllerRef.current = null
     }
   }
 
@@ -118,11 +189,21 @@ export const ChapterDetailsScreen: FC<ChapterDetailsScreenProps> = function Chap
       return
     }
 
+    // Create abort controller for this verse translation
+    const abortController = new AbortController()
+    translationAbortControllersRef.current.set(verseIndex, abortController)
+
     // Set loading state for this verse
     setTranslatingVerses(prev => new Set(prev).add(verseIndex))
 
     try {
       const response = await api.translateVerse(verse.arabic_text || verse.text || "")
+      
+      // Check if operation was aborted or component unmounted
+      if (abortController.signal.aborted || !isMountedRef.current) {
+        return
+      }
+
       if (response.kind === "ok") {
         setTranslations(prev => new Map(prev).set(verseIndex, response.translation))
         // Save translation to persistent storage
@@ -131,13 +212,22 @@ export const ChapterDetailsScreen: FC<ChapterDetailsScreenProps> = function Chap
         Alert.alert("Error", "Failed to translate verse")
       }
     } catch (error) {
-      Alert.alert("Error", "Failed to translate verse")
+      // Don't show error if operation was aborted
+      if (!abortController.signal.aborted) {
+        Alert.alert("Error", "Failed to translate verse")
+      }
     } finally {
-      setTranslatingVerses(prev => {
-        const newSet = new Set(prev)
-        newSet.delete(verseIndex)
-        return newSet
-      })
+      // Clean up abort controller
+      translationAbortControllersRef.current.delete(verseIndex)
+      
+      // Update loading state only if component is still mounted and not aborted
+      if (isMountedRef.current && !abortController.signal.aborted) {
+        setTranslatingVerses(prev => {
+          const newSet = new Set(prev)
+          newSet.delete(verseIndex)
+          return newSet
+        })
+      }
     }
   }
 
