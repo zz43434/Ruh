@@ -40,6 +40,7 @@ export const WellnessScreen: FC<WellnessScreenProps> = function WellnessScreen()
   const [refreshing, setRefreshing] = useState(false)
   const [showCheckinModal, setShowCheckinModal] = useState(false)
   const [showAnalysisModal, setShowAnalysisModal] = useState(false)
+  const [analysisResult, setAnalysisResult] = useState(null)
   const [checkinData, setCheckinData] = useState({
     mood: "",
     energy_level: 5,
@@ -128,9 +129,9 @@ export const WellnessScreen: FC<WellnessScreenProps> = function WellnessScreen()
     }
   }
 
-  const handleAnalysisComplete = (result: WellnessAnalysisResult) => {
+  const handleAnalysisComplete = (result) => {
+    setAnalysisResult(result)
     console.log('Wellness analysis completed:', result)
-    // You could save the analysis result or show a success message
   }
 
   useEffect(() => {
@@ -304,11 +305,13 @@ export const WellnessScreen: FC<WellnessScreenProps> = function WellnessScreen()
             text="New Check-in"
             onPress={() => setShowCheckinModal(true)}
             style={themed($checkinButton)}
+            disabled={loading}
           />
           <Button
             text="Wellness Analysis"
             onPress={() => setShowAnalysisModal(true)}
             style={themed($analysisButton)}
+            disabled={loading}
           />
         </View>
 
@@ -346,10 +349,10 @@ export const WellnessScreen: FC<WellnessScreenProps> = function WellnessScreen()
               Wellness Analysis
             </Text>
             <TouchableOpacity
-              onPress={() => setShowAnalysisModal(false)}
               style={themed($closeButton)}
+              onPress={() => setShowAnalysisModal(false)}
             >
-              <Text style={themed($closeButtonText)}>✕</Text>
+              <Text style={themed($closeButtonText)}>Close</Text>
             </TouchableOpacity>
           </View>
           

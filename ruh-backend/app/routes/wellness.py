@@ -15,13 +15,15 @@ def get_wellness_history():
         
         user_id = request.args.get('user_id', 'default_user')
         limit = int(request.args.get('limit', 10))
+        offset = int(request.args.get('offset', 0))
         
-        history = wellness_service.get_tracked_progress(user_id)
+        history = wellness_service.get_tracked_progress(user_id, limit=limit, offset=offset)
         
         return jsonify({
-            "wellness_history": history.get("progress", [])[:limit],
+            "wellness_history": history.get("wellness_history", []),
             "user_id": user_id,
-            "total_entries": len(history.get("progress", []))
+            "total_entries": history.get("total_entries", 0),
+            "trend_analysis": history.get("trend_analysis")
         }), 200
         
     except Exception as e:
@@ -184,3 +186,41 @@ def get_wellness_guidance():
         
     except Exception as e:
         return jsonify({"error": str(e)}), 500
+
+@wellness_bp.route('/wellness/ai-analysis', methods=['POST'])
+def get_ai_wellness_analysis():
+    """
+    Get AI-powered wellness analysis with Islamic themes and verse recommendations.
+    Requires sufficient check-ins and user request.
+    """
+    try:
+        db = next(get_db())
+        wellness_service = WellnessService(db=db)
+        
+        data = request.get_json()
+        
+        # Validate required fields
+        if not data or 'user_id' not in data:
+            return jsonify({"error": "Missing required field: user_id"}), 400
+        
+        user_id = data['user_id']
+        min_checkins = data.get('min_checkins', 3)  # Default minimum 3 check-ins
+        
+        # Get AI-powered analysis
+        analysis_result = wellness_service.analyze_wellness_with_ai(user_id, min_checkins)
+        
+        # Handle insufficient data case
+        if analysis_result.get("status") == "insufficient_data":
+            return jsonify(analysis_result), 200  # 200 OK but with insufficient data message
+        
+        # Handle error case
+        if analysis_result.get("status") == "error":
+            return jsonify(analysis_result), 500
+        
+        return jsonify(analysis_result), 200
+        
+    except Exception as e:
+        return jsonify({
+            "status": "error",
+            "message": f"Analysis request failed: {str(e)}"
+        }), 500

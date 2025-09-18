@@ -1,12 +1,12 @@
-import React, { FC, useState } from "react"
+import React, { FC, useState, useEffect } from "react"
 import {
   View,
   ViewStyle,
   TextStyle,
-  TextInput,
   ScrollView,
   TouchableOpacity,
   Alert,
+  ActivityIndicator,
 } from "react-native"
 import { Text } from "@/components/Text"
 import { Button } from "@/components/Button"
@@ -14,6 +14,7 @@ import { useAppTheme } from "@/theme/context"
 import type { ThemedStyle } from "@/theme/types"
 import { api } from "@/services/api"
 import { WellnessAnalysisResult, WellnessVerse } from "@/services/api/types"
+import { useUser } from "@/contexts/UserContext"
 
 interface WellnessAnalysisProps {
   onAnalysisComplete?: (result: WellnessAnalysisResult) => void
@@ -23,38 +24,41 @@ export const WellnessAnalysis: FC<WellnessAnalysisProps> = function WellnessAnal
   onAnalysisComplete,
 }) {
   const { themed, theme } = useAppTheme()
-  const [userInput, setUserInput] = useState("")
+  const { user } = useUser()
   const [analysisResult, setAnalysisResult] = useState<WellnessAnalysisResult | null>(null)
   const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
-  const handleAnalyze = async () => {
-    if (!userInput.trim()) {
-      Alert.alert("Input Required", "Please describe how you're feeling or what you're going through.")
+  const fetchAnalysis = async () => {
+    if (!user?.id) {
+      setError("User not found. Please try again.")
       return
     }
 
     setLoading(true)
+    setError(null)
+    
     try {
-      const response = await api.analyzeWellness({ user_input: userInput.trim() })
+      const response = await api.getAIWellnessAnalysis(user.id, 3)
       if (response.kind === "ok") {
         setAnalysisResult(response.data)
         onAnalysisComplete?.(response.data)
       } else {
-        console.error('Failed to analyze wellness:', response.error)
-        Alert.alert("Error", "Failed to analyze your input. Please try again.")
+        console.error('Failed to get AI wellness analysis:', response.error)
+        setError(response.error?.message || "Failed to get analysis. Please try again.")
       }
     } catch (error) {
-      console.error('Error analyzing wellness:', error)
-      Alert.alert("Error", "Failed to analyze your input. Please try again.")
+      console.error('Error getting AI wellness analysis:', error)
+      setError("Failed to get analysis. Please try again.")
     } finally {
       setLoading(false)
     }
   }
 
-  const handleClear = () => {
-    setUserInput("")
-    setAnalysisResult(null)
-  }
+  useEffect(() => {
+    // Automatically fetch analysis when component mounts
+    fetchAnalysis()
+  }, [user?.id])
 
   const renderVerse = (verse: WellnessVerse, index: number) => (
     <View key={`${verse.id}-${index}`} style={themed($verseCard)}>
@@ -81,21 +85,21 @@ export const WellnessAnalysis: FC<WellnessAnalysisProps> = function WellnessAnal
 
     return (
       <ScrollView style={themed($resultsContainer)} showsVerticalScrollIndicator={false}>
-        {/* Detected Categories */}
-        {analysisResult.detected_categories.length > 0 && (
+        {/* Islamic Themes */}
+        {analysisResult.detected_categories && analysisResult.detected_categories.length > 0 && (
           <View style={themed($section)}>
-            <Text style={themed($sectionTitle)}>Detected Areas of Concern</Text>
+            <Text style={themed($sectionTitle)}>Islamic Themes</Text>
             <View style={themed($categoriesContainer)}>
-              {analysisResult.detected_categories.map((category, index) => (
+              {analysisResult.detected_categories.map((theme, index) => (
                 <View key={index} style={themed($categoryTag)}>
-                  <Text style={themed($categoryText)}>{category}</Text>
+                  <Text style={themed($categoryText)}>{theme}</Text>
                 </View>
               ))}
             </View>
           </View>
         )}
 
-        {/* Guidance */}
+        {/* Analysis */}
         {analysisResult.guidance && (
           <View style={themed($section)}>
             <Text style={themed($sectionTitle)}>Spiritual Guidance</Text>
@@ -104,71 +108,52 @@ export const WellnessAnalysis: FC<WellnessAnalysisProps> = function WellnessAnal
         )}
 
         {/* Relevant Verses */}
-        {analysisResult.verses.length > 0 && (
+        {analysisResult.verses && analysisResult.verses.length > 0 && (
           <View style={themed($section)}>
-            <Text style={themed($sectionTitle)}>Relevant Verses</Text>
+            <Text style={themed($sectionTitle)}>Relevant Quranic Verses</Text>
             {analysisResult.verses.map((verse, index) => renderVerse(verse, index))}
           </View>
         )}
 
         {/* Recommendations */}
-        {analysisResult.recommendations.length > 0 && (
+        {analysisResult.recommendations && analysisResult.recommendations.length > 0 && (
           <View style={themed($section)}>
             <Text style={themed($sectionTitle)}>Recommendations</Text>
             {analysisResult.recommendations.map((recommendation, index) => (
               <View key={index} style={themed($recommendationItem)}>
-                <Text style={themed($recommendationBullet)}>•</Text>
-                <Text style={themed($recommendationText)}>{recommendation}</Text>
+                <Text style={themed($recommendationText)}>• {recommendation}</Text>
               </View>
             ))}
           </View>
         )}
+        
+        {/* Spiritual Guidance */}
+        {/* Removed duplicate spiritual guidance section */}
       </ScrollView>
     )
   }
 
   return (
     <View style={themed($container)}>
-      <View style={themed($inputSection)}>
-        <Text style={themed($inputLabel)}>
-          How are you feeling? What's on your mind?
-        </Text>
-        <TextInput
-          style={themed($textInput)}
-          value={userInput}
-          onChangeText={setUserInput}
-          placeholder="Describe your thoughts, feelings, or situation..."
-          placeholderTextColor={theme.colors.textDim}
-          multiline
-          numberOfLines={4}
-          textAlignVertical="top"
-        />
-        
-        <View style={themed($buttonContainer)}>
-          <Button
-            text="Analyze"
-            onPress={handleAnalyze}
-            style={themed($analyzeButton)}
-            disabled={loading || !userInput.trim()}
-          />
-          {(userInput || analysisResult) && (
-            <Button
-              text="Clear"
-              onPress={handleClear}
-              style={themed($clearButton)}
-              textStyle={themed($clearButtonText)}
-            />
-          )}
-        </View>
-      </View>
-
       {loading && (
         <View style={themed($loadingContainer)}>
-          <Text style={themed($loadingText)}>Analyzing your input...</Text>
+          <ActivityIndicator size="large" color={theme.colors.palette.primary500} />
+          <Text style={themed($loadingText)}>Generating your wellness analysis...</Text>
         </View>
       )}
-
-      {renderAnalysisResult()}
+      
+      {error ? (
+        <View style={themed($errorContainer)}>
+          <Text style={themed($errorText)}>{error}</Text>
+          <Button
+            text="Try Again"
+            style={themed($retryButton)}
+            onPress={fetchAnalysis}
+          />
+        </View>
+      ) : (
+        renderAnalysisResult()
+      )}
     </View>
   )
 }

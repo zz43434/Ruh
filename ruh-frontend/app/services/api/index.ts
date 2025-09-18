@@ -166,6 +166,20 @@ export class Api {
 
     return { kind: "ok", data: response.data as WellnessAnalysisResult }
   }
+  
+  async getAIWellnessAnalysis(userId: string, minCheckins: number = 3): Promise<{ kind: "ok"; data: WellnessAnalysisResult } | { kind: "error"; error: any }> {
+    const response = await this.apisauce.post("/wellness/ai-analysis", { 
+      user_id: userId,
+      min_checkins: minCheckins
+    })
+
+    if (!response.ok) {
+      const problem = getGeneralApiProblem(response)
+      if (problem) return { kind: "error", error: problem }
+    }
+
+    return { kind: "ok", data: response.data as WellnessAnalysisResult }
+  }
 
   async getCategoryVerses(categoryId: string, maxVerses: number = 5): Promise<{ kind: "ok"; data: CategoryVersesResponse } | { kind: "error"; error: any }> {
     const response = await this.apisauce.get(`/wellness/category/${categoryId}/verses`, { max_verses: maxVerses })
