@@ -1,12 +1,20 @@
-class Config:
-    DEBUG = True  # Set to False in production
-    TESTING = False
-    DATABASE_URI = 'sqlite:///app.db'  # Example database URI
-    SECRET_KEY = 'your_secret_key'  # Change this to a random secret key
-    ALLOWED_HOSTS = ['localhost', '127.0.0.1']  # Allowed hosts for the application
-    LOGGING_LEVEL = 'INFO'  # Set logging level
-    JSON_SORT_KEYS = False  # Do not sort keys in JSON responses
+import os
+from dotenv import load_dotenv
 
-    @staticmethod
-    def init_app(app):
-        pass  # Initialize app with configuration settings if needed
+load_dotenv()
+
+class Config:
+    # Flask Configuration
+    SECRET_KEY = os.getenv('SECRET_KEY', 'dev-key-change-in-production')
+    
+    # Groq API Configuration
+    GROQ_API_KEY = os.getenv('GROQ_API_KEY')
+    
+    # Rate Limiting
+    RATELIMIT_DEFAULT = os.getenv('RATELIMIT_DEFAULT', "200 per day;50 per hour")
+    
+    # CORS
+    CORS_ORIGINS = os.getenv('CORS_ORIGINS', '').split(',')
+    
+    # Data Paths
+    QURAN_DATA_PATH = os.getenv('QURAN_DATA_PATH', 'app/data/quran_analysis.json')

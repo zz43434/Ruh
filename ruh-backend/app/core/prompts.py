@@ -1,10 +1,28 @@
 # This file contains all prompt templates used in the application.
 
-PROMPT_TEMPLATES = {
-    "greeting": "Hello! How can I assist you today?",
-    "farewell": "Thank you for using our service. Have a great day!",
-    "chat_prompt": "Please enter your message:",
-    "verse_prompt": "Which verse would you like to explore?",
-    "wellness_prompt": "How can I help you with your wellness journey?",
-    "conversation_prompt": "Let's start a conversation. What topic interests you?",
-}
+class PromptTemplates:
+    def get_sentiment_prompt(self, user_message: str) -> str:
+        return f"""
+Analyze the sentiment and themes in this message: "{user_message}"
+
+Respond with JSON containing:
+{{
+    "sentiment": "positive/negative/neutral",
+    "themes": ["list", "of", "themes"]
+}}
+"""
+    
+    def get_chat_prompt(self, user_message: str, sentiment: str, themes: list, 
+                       verse_text: str, surah_name: str, verse_number: int) -> str:
+        return f"""
+User message: "{user_message}"
+Sentiment: {sentiment}
+Themes: {', '.join(themes)}
+
+Relevant Quranic verse:
+"{verse_text}" - {surah_name}:{verse_number}
+
+Provide a compassionate, supportive response that incorporates Islamic wisdom from this verse. Be empathetic and offer spiritual comfort.
+"""
+
+PROMPT_TEMPLATES = PromptTemplates()

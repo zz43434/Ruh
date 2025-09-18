@@ -1,26 +1,24 @@
-def handle_not_found_error(error):
-    response = {
-        "status": "error",
-        "message": "Resource not found."
-    }
-    return response, 404
-
-def handle_internal_server_error(error):
-    response = {
-        "status": "error",
-        "message": "An internal server error occurred."
-    }
-    return response, 500
-
-def handle_validation_error(error):
-    response = {
-        "status": "error",
-        "message": "Validation error.",
-        "details": error.messages
-    }
-    return response, 400
+from flask import jsonify
 
 def register_error_handlers(app):
-    app.register_error_handler(404, handle_not_found_error)
-    app.register_error_handler(500, handle_internal_server_error)
-    app.register_error_handler(400, handle_validation_error)
+    """
+    Register global error handlers
+    """
+    @app.errorhandler(404)
+    def not_found_error(error):
+        return jsonify({"error": "Endpoint not found"}), 404
+    
+    @app.errorhandler(405)
+    def method_not_allowed_error(error):
+        return jsonify({"error": "Method not allowed"}), 405
+    
+    @app.errorhandler(500)
+    def internal_error(error):
+        return jsonify({"error": "Internal server error"}), 500
+    
+    @app.errorhandler(429)
+    def rate_limit_exceeded(error):
+        return jsonify({
+            "error": "Rate limit exceeded",
+            "message": "Please try again in a few minutes"
+        }), 429

@@ -1,37 +1,48 @@
-from flask import Blueprint, jsonify, request
+from flask import Blueprint, request, jsonify
 from app.services.wellness_service import WellnessService
 
 wellness_bp = Blueprint('wellness', __name__)
+wellness_service = WellnessService()
 
-@wellness_bp.route('/wellness', methods=['GET'])
-def get_wellness_resources():
-    resources = WellnessService.get_resources()
-    return jsonify(resources), 200
+@wellness_bp.route('/wellness/checkin', methods=['POST'])
+def wellness_checkin():
+    """
+    Submit a wellness check-in and get personalized guidance
+    """
+    try:
+        data = request.get_json()
+        
+        # Validate required fields
+        required_fields = ['mood', 'energy_level', 'stress_level']
+        for field in required_fields:
+            if field not in data:
+                return jsonify({"error": f"Missing required field: {field}"}), 400
+        
+        result = wellness_service.process_wellness_checkin(
+            mood=data['mood'],
+            energy_level=data['energy_level'],
+            stress_level=data['stress_level'],
+            notes=data.get('notes', ''),
+            user_id=data.get('user_id')
+        )
+        
+        return jsonify(result), 200
+        
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
-@wellness_bp.route('/wellness', methods=['POST'])
-def create_wellness_resource():
-    data = request.json
-    new_resource = WellnessService.create_resource(data)
-    return jsonify(new_resource), 201
-
-@wellness_bp.route('/wellness/<int:resource_id>', methods=['GET'])
-def get_wellness_resource(resource_id):
-    resource = WellnessService.get_resource(resource_id)
-    if resource:
-        return jsonify(resource), 200
-    return jsonify({'message': 'Resource not found'}), 404
-
-@wellness_bp.route('/wellness/<int:resource_id>', methods=['PUT'])
-def update_wellness_resource(resource_id):
-    data = request.json
-    updated_resource = WellnessService.update_resource(resource_id, data)
-    if updated_resource:
-        return jsonify(updated_resource), 200
-    return jsonify({'message': 'Resource not found'}), 404
-
-@wellness_bp.route('/wellness/<int:resource_id>', methods=['DELETE'])
-def delete_wellness_resource(resource_id):
-    success = WellnessService.delete_resource(resource_id)
-    if success:
-        return jsonify({'message': 'Resource deleted'}), 204
-    return jsonify({'message': 'Resource not found'}), 404
+@wellness_bp.route('/wellness/stats', methods=['GET'])
+def get_wellness_stats():
+    """
+    Get wellness statistics and trends (placeholder)
+    """
+    try:
+        user_id = request.args.get('user_id')
+        # This would connect to a database in production
+        return jsonify({
+            "message": "Wellness statistics endpoint",
+            "user_id": user_id,
+            "stats": {}  # Would contain actual stats
+        }), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
