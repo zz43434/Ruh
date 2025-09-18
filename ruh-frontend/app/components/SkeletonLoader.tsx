@@ -161,7 +161,7 @@ export const SearchSkeleton: React.FC<SkeletonLoaderProps> = ({ style }) => {
 
 // Compact skeleton for small loading states
 export const CompactSkeleton: React.FC<{ 
-  width?: number | string
+  width?: DimensionValue
   height?: number
   borderRadius?: number
   style?: ViewStyle 

@@ -50,6 +50,27 @@ export class Api {
         Accept: "application/json",
       },
     })
+
+    // Add request/response interceptors for debugging
+    this.apisauce.addRequestTransform((request) => {
+      console.log(`🚀 API Request: ${request.method?.toUpperCase()} ${request.url}`)
+      console.log('📤 Request data:', request.data)
+      console.log('🔧 Request headers:', request.headers)
+    })
+
+    this.apisauce.addResponseTransform((response) => {
+      console.log(`📥 API Response: ${response.status} ${response.config?.url}`)
+      if (!response.ok) {
+        console.error('❌ API Error:', {
+          status: response.status,
+          problem: response.problem,
+          data: response.data,
+          originalError: response.originalError
+        })
+      } else {
+        console.log('✅ API Success:', response.data)
+      }
+    })
   }
 
   // Chat API methods

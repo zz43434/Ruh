@@ -14,6 +14,9 @@ import { Text } from "@/components/Text"
 import { Button } from "@/components/Button"
 import { useAppTheme } from "@/theme/context"
 import type { ThemedStyle } from "@/theme/types"
+import { useNavigation } from "@react-navigation/native"
+import type { NativeStackNavigationProp } from "@react-navigation/native-stack"
+import type { AppStackParamList } from "@/navigators/AppNavigator"
 import { api } from "@/services/api"
 import { Verse } from "@/services/api/types"
 
@@ -21,6 +24,7 @@ interface VersesScreenProps {}
 
 export const VersesScreen: FC<VersesScreenProps> = function VersesScreen() {
   const { themed, theme } = useAppTheme()
+  const navigation = useNavigation<NativeStackNavigationProp<AppStackParamList>>()
   const [verses, setVerses] = useState<Verse[]>([])
   const [loading, setLoading] = useState(false)
   const [refreshing, setRefreshing] = useState(false)
@@ -92,18 +96,31 @@ export const VersesScreen: FC<VersesScreenProps> = function VersesScreen() {
     loadVerses()
   }, [])
 
+  const handleVersePress = (verse: Verse) => {
+    console.log("VersesScreen - handleVersePress called with verse:", verse)
+    console.log("VersesScreen - verse properties:", {
+      chapter: verse.chapter,
+      verse: verse.verse,
+      text: verse.text,
+      translation: verse.translation
+    })
+    navigation.navigate("VerseDetails", { verse })
+  }
+
   const renderVerse = ({ item }: { item: Verse }) => (
-    <View style={themed($verseCard)}>
-      <View style={themed($verseHeader)}>
-        <Text style={themed($verseReference)}>
-          Chapter {item.chapter}, Verse {item.verse}
-        </Text>
+    <TouchableOpacity onPress={() => handleVersePress(item)}>
+      <View style={themed($verseCard)}>
+        <View style={themed($verseHeader)}>
+          <Text style={themed($verseReference)}>
+            Chapter {item.chapter || item.surah_number}, Verse {item.verse || item.verse_number}
+          </Text>
+        </View>
+        <Text style={themed($verseText)}>{item.text || item.arabic_text}</Text>
+        {(item.translation) && (
+          <Text style={themed($verseTranslation)}>{item.translation}</Text>
+        )}
       </View>
-      <Text style={themed($verseText)}>{item.text}</Text>
-      {item.translation && (
-        <Text style={themed($verseTranslation)}>{item.translation}</Text>
-      )}
-    </View>
+    </TouchableOpacity>
   )
 
   return (

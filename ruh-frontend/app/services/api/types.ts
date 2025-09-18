@@ -123,6 +123,13 @@ export interface Verse {
   verse: number
   text: string
   translation: string
+  // Backend fields
+  verse_number?: string
+  arabic_text?: string
+  surah_number?: number
+  surah_name?: string
+  ayah_count?: number
+  revelation_place?: string
 }
 
 export interface VersesResponse {

@@ -78,7 +78,7 @@ export function App() {
       // Initialize i18n and restore query cache in parallel
       await Promise.all([
         initI18n().then(() => setIsI18nInitialized(true)),
-        restoreQueryClient().then(() => setIsQueryClientRestored(true)),
+        restoreQueryClient(queryClient).then(() => setIsQueryClientRestored(true)),
       ])
       await loadDateFnsLocale()
     }
@@ -89,13 +89,13 @@ export function App() {
   // Persist query cache when app goes to background
   useEffect(() => {
     const handleAppStateChange = () => {
-      persistQueryClient()
+      persistQueryClient(queryClient)
     }
 
     // For React Native, you might want to use AppState listener here
     // For now, we'll persist on unmount
     return () => {
-      persistQueryClient()
+      persistQueryClient(queryClient)
     }
   }, [])
 

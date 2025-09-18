@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import AsyncStorage from '@react-native-async-storage/async-storage'
+import { safeStorage } from '@/services/safeStorage'
 import { api } from '@/services/api'
 import type { WellnessCheckin, WellnessResponse, WellnessHistory } from '@/services/api/types'
 
@@ -68,10 +68,10 @@ export function useSubmitWellnessCheckin() {
 
       // Store offline for later sync if needed
       try {
-        const offlineCheckins = await AsyncStorage.getItem('offline_wellness_checkins')
+        const offlineCheckins = await safeStorage.getItem('offline_wellness_checkins')
         const checkins = offlineCheckins ? JSON.parse(offlineCheckins) : []
         checkins.push({ ...newCheckin, timestamp: new Date().toISOString(), synced: false })
-        await AsyncStorage.setItem('offline_wellness_checkins', JSON.stringify(checkins))
+        await safeStorage.setItem('offline_wellness_checkins', JSON.stringify(checkins))
       } catch (error) {
         console.warn('Failed to store offline wellness checkin:', error)
       }
@@ -88,7 +88,7 @@ export function useSubmitWellnessCheckin() {
     onSuccess: async (data, variables) => {
       // Mark as synced in offline storage
       try {
-        const offlineCheckins = await AsyncStorage.getItem('offline_wellness_checkins')
+        const offlineCheckins = await safeStorage.getItem('offline_wellness_checkins')
         if (offlineCheckins) {
           const checkins = JSON.parse(offlineCheckins)
           const updatedCheckins = checkins.map((checkin: any) => 
@@ -98,7 +98,7 @@ export function useSubmitWellnessCheckin() {
               ? { ...checkin, synced: true }
               : checkin
           )
-          await AsyncStorage.setItem('offline_wellness_checkins', JSON.stringify(updatedCheckins))
+          await safeStorage.setItem('offline_wellness_checkins', JSON.stringify(updatedCheckins))
         }
       } catch (error) {
         console.warn('Failed to update offline wellness checkin status:', error)
@@ -119,7 +119,7 @@ export function useSyncOfflineWellnessCheckins() {
 
   return useMutation({
     mutationFn: async () => {
-      const offlineCheckins = await AsyncStorage.getItem('offline_wellness_checkins')
+      const offlineCheckins = await safeStorage.getItem('offline_wellness_checkins')
       if (!offlineCheckins) return []
 
       const checkins = JSON.parse(offlineCheckins)
@@ -139,7 +139,7 @@ export function useSyncOfflineWellnessCheckins() {
       const syncedCheckins = await Promise.all(syncPromises)
       const allCheckins = [...checkins.filter((c: any) => c.synced), ...syncedCheckins]
       
-      await AsyncStorage.setItem('offline_wellness_checkins', JSON.stringify(allCheckins))
+      await safeStorage.setItem('offline_wellness_checkins', JSON.stringify(allCheckins))
       return syncedCheckins
     },
     onSuccess: () => {
@@ -153,7 +153,7 @@ export function useOfflineWellnessCheckins() {
   return useQuery({
     queryKey: [...wellnessKeys.all, 'offline'],
     queryFn: async () => {
-      const offlineCheckins = await AsyncStorage.getItem('offline_wellness_checkins')
+      const offlineCheckins = await safeStorage.getItem('offline_wellness_checkins')
       return offlineCheckins ? JSON.parse(offlineCheckins) : []
     },
     staleTime: 0, // Always check for offline data
@@ -176,7 +176,7 @@ export function useWellness() {
 
   const clearOfflineData = async () => {
     try {
-      await AsyncStorage.removeItem('offline_wellness_checkins')
+      await safeStorage.removeItem('offline_wellness_checkins')
       queryClient.invalidateQueries({ queryKey: [...wellnessKeys.all, 'offline'] })
     } catch (error) {
       console.error('Failed to clear offline wellness data:', error)

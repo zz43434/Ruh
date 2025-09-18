@@ -16,6 +16,7 @@ import { WelcomeScreen } from "@/screens/WelcomeScreen"
 import { ChatScreen } from "@/screens/ChatScreen"
 import { VersesScreen } from "@/screens/VersesScreen"
 import { WellnessScreen } from "@/screens/WellnessScreen"
+import { VerseDetailsScreen } from "@/screens/VerseDetailsScreen"
 import { useAppTheme } from "@/theme/context"
 
 import { navigationRef, useBackButtonHandler } from "./navigationUtilities"
@@ -32,6 +33,7 @@ import { navigationRef, useBackButtonHandler } from "./navigationUtilities"
 export type AppStackParamList = {
   Welcome: undefined
   MainTabs: NavigatorScreenParams<MainTabParamList>
+  VerseDetails: { verse: import("@/services/api/types").Verse }
   // 🔥 Your screens go here
   // IGNITE_GENERATOR_ANCHOR_APP_STACK_PARAM_LIST
 }
@@ -148,6 +150,7 @@ const AppStack = () => {
     >
       <Stack.Screen name="Welcome" component={WelcomeScreen} />
       <Stack.Screen name="MainTabs" component={MainTabs} />
+      <Stack.Screen name="VerseDetails" component={VerseDetailsScreen} />
       {/** 🔥 Your screens go here */}
       {/* IGNITE_GENERATOR_ANCHOR_APP_STACK_SCREENS */}
     </Stack.Navigator>

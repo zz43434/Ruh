@@ -1,5 +1,5 @@
 import { QueryClient } from '@tanstack/react-query'
-import AsyncStorage from '@react-native-async-storage/async-storage'
+import { safeStorage } from './safeStorage'
 
 // Create a client with optimized settings for mobile
 export const queryClient = new QueryClient({
@@ -29,44 +29,48 @@ export const queryClient = new QueryClient({
 })
 
 // Persist query cache to AsyncStorage
-export const persistQueryClient = async () => {
+export async function persistQueryClient(queryClient: QueryClient) {
   try {
-    const queryCache = queryClient.getQueryCache()
-    const queries = queryCache.getAll()
+    const persistData = {
+      clientState: queryClient.getQueryCache().getAll().map(query => ({
+        queryKey: query.queryKey,
+        queryHash: query.queryHash,
+        state: query.state,
+      })),
+      timestamp: Date.now(),
+    }
     
-    const persistData = queries.map(query => ({
-      queryKey: query.queryKey,
-      queryHash: query.queryHash,
-      data: query.state.data,
-      dataUpdatedAt: query.state.dataUpdatedAt,
-    }))
-    
-    await AsyncStorage.setItem('react-query-cache', JSON.stringify(persistData))
+    await safeStorage.setItem('react-query-cache', JSON.stringify(persistData))
+    console.log('Query cache persisted successfully')
   } catch (error) {
-    console.warn('Failed to persist query cache:', error)
+    console.error('Failed to persist query cache:', error)
   }
 }
 
 // Restore query cache from AsyncStorage
-export const restoreQueryClient = async () => {
+export async function restoreQueryClient(queryClient: QueryClient) {
   try {
-    const persistedData = await AsyncStorage.getItem('react-query-cache')
+    const persistedData = await safeStorage.getItem('react-query-cache')
     if (persistedData) {
-      const queries = JSON.parse(persistedData)
-      const queryCache = queryClient.getQueryCache()
+      const { clientState, timestamp } = JSON.parse(persistedData)
       
-      queries.forEach((query: any) => {
-        queryCache.build(queryClient, {
-          queryKey: query.queryKey,
-          queryHash: query.queryHash,
-        }).setState({
-          data: query.data,
-          dataUpdatedAt: query.dataUpdatedAt,
-          status: 'success',
+      // Only restore if data is less than 24 hours old
+      if (Date.now() - timestamp < 24 * 60 * 60 * 1000) {
+        const queryCache = queryClient.getQueryCache()
+        
+        clientState.forEach((query: any) => {
+          queryCache.build(queryClient, {
+            queryKey: query.queryKey,
+            queryHash: query.queryHash,
+          }).setState(query.state)
         })
-      })
+        
+        console.log('Query cache restored successfully')
+      } else {
+        console.log('Cached data too old, skipping restore')
+      }
     }
   } catch (error) {
-    console.warn('Failed to restore query cache:', error)
+    console.error('Failed to restore query cache:', error)
   }
 }
