@@ -19,6 +19,7 @@ import { WellnessScreen } from "@/screens/WellnessScreen"
 import { VerseDetailsScreen } from "@/screens/VerseDetailsScreen"
 import { ChapterDetailsScreen } from "@/screens/ChapterDetailsScreen"
 import { useAppTheme } from "@/theme/context"
+import { AnimatedTabIcon } from "@/components/AnimatedTabIcon"
 
 import { navigationRef, useBackButtonHandler } from "./navigationUtilities"
 import { screenAnimations, fadeAnimation, slideFromBottomAnimation } from "./animations"
@@ -94,8 +95,13 @@ const MainTabs = () => {
         component={ChatScreen}
         options={{
           tabBarLabel: "Chat",
-          tabBarIcon: ({ color, size }) => (
-            <ChatIcon color={color} size={size} />
+          tabBarIcon: ({ color, size, focused }) => (
+            <AnimatedTabIcon 
+              icon="💬" 
+              color={color} 
+              size={size} 
+              focused={focused}
+            />
           ),
         }}
       />
@@ -104,8 +110,13 @@ const MainTabs = () => {
         component={VersesScreen}
         options={{
           tabBarLabel: "Verses",
-          tabBarIcon: ({ color, size }) => (
-            <VersesIcon color={color} size={size} />
+          tabBarIcon: ({ color, size, focused }) => (
+            <AnimatedTabIcon 
+              icon="📖" 
+              color={color} 
+              size={size} 
+              focused={focused}
+            />
           ),
         }}
       />
@@ -114,8 +125,13 @@ const MainTabs = () => {
         component={WellnessScreen}
         options={{
           tabBarLabel: "Wellness",
-          tabBarIcon: ({ color, size }) => (
-            <WellnessIcon color={color} size={size} />
+          tabBarIcon: ({ color, size, focused }) => (
+            <AnimatedTabIcon 
+              icon="💚" 
+              color={color} 
+              size={size} 
+              focused={focused}
+            />
           ),
         }}
       />

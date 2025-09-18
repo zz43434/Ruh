@@ -15,6 +15,7 @@ import { Screen } from "@/components/Screen"
 import { Text } from "@/components/Text"
 import { Button } from "@/components/Button"
 import { Icon } from "@/components/Icon"
+import { AnimatedScreenWrapper } from "@/components/AnimatedScreenWrapper"
 import { useAppTheme } from "@/theme/context"
 import { $styles } from "@/theme/styles"
 import type { ThemedStyle } from "@/theme/types"
@@ -307,27 +308,29 @@ export const ChatScreen: FC = function ChatScreen() {
         behavior={Platform.OS === "ios" ? "padding" : undefined}
         keyboardVerticalOffset={Platform.OS === "ios" ? 0 : 0}
       >
-        <View style={themed($header)}>
-          <Text preset="heading" style={themed($headerTitle)}>
-            Ruh Chat
-          </Text>
-          <Text style={themed($headerSubtitle)}>
-            Islamic Spiritual Guidance
-          </Text>
-        </View>
+        <AnimatedScreenWrapper animationType="fade" duration={300}>
+          <View style={themed($header)}>
+            <Text preset="heading" style={themed($headerTitle)}>
+              Ruh Chat
+            </Text>
+            <Text style={themed($headerSubtitle)}>
+              Islamic Spiritual Guidance
+            </Text>
+          </View>
 
-        <FlatList
-          ref={flatListRef}
-          data={messages}
-          renderItem={renderMessage}
-          keyExtractor={(item) => item.id}
-          style={themed($messagesList)}
-          contentContainerStyle={themed($messagesContent)}
-          showsVerticalScrollIndicator={false}
-          onContentSizeChange={scrollToBottom}
-        />
+          <FlatList
+            ref={flatListRef}
+            data={messages}
+            renderItem={renderMessage}
+            keyExtractor={(item) => item.id}
+            style={themed($messagesList)}
+            contentContainerStyle={themed($messagesContent)}
+            showsVerticalScrollIndicator={false}
+            onContentSizeChange={scrollToBottom}
+          />
 
-        {isLoading && <TypingIndicator themed={themed} />}
+          {isLoading && <TypingIndicator themed={themed} />}
+        </AnimatedScreenWrapper>
 
         <View style={themed([$inputContainer, $bottomContainerInsets])}>
           <View style={themed($inputWrapper)}>

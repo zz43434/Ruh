@@ -13,6 +13,7 @@ import {
 import { Screen } from "@/components/Screen"
 import { Text } from "@/components/Text"
 import { Button } from "@/components/Button"
+import { AnimatedScreenWrapper } from "@/components/AnimatedScreenWrapper"
 import { useAppTheme } from "@/theme/context"
 import type { ThemedStyle } from "@/theme/types"
 import { api } from "@/services/api"
@@ -281,40 +282,42 @@ export const WellnessScreen: FC<WellnessScreenProps> = function WellnessScreen()
       contentContainerStyle={themed($screenContentContainer)}
       safeAreaEdges={["top"]}
     >
-      <View style={themed($header)}>
-        <Text preset="heading" style={themed($headerTitle)}>
-          Wellness
-        </Text>
-        <Text style={themed($headerSubtitle)}>
-          Track your spiritual and emotional well-being
-        </Text>
-      </View>
+      <AnimatedScreenWrapper animationType="slideUp" duration={400}>
+        <View style={themed($header)}>
+          <Text preset="heading" style={themed($headerTitle)}>
+            Wellness
+          </Text>
+          <Text style={themed($headerSubtitle)}>
+            Track your spiritual and emotional well-being
+          </Text>
+        </View>
 
-      <View style={themed($actionsContainer)}>
-        <Button
-          text="New Check-in"
-          onPress={() => setShowCheckinModal(true)}
-          style={themed($checkinButton)}
+        <View style={themed($actionsContainer)}>
+          <Button
+            text="New Check-in"
+            onPress={() => setShowCheckinModal(true)}
+            style={themed($checkinButton)}
+          />
+        </View>
+
+        <FlatList
+          data={wellnessHistory}
+          renderItem={renderWellnessEntry}
+          keyExtractor={(item) => item.id.toString()}
+          contentContainerStyle={themed($listContainer)}
+          refreshControl={
+            <RefreshControl refreshing={refreshing} onRefresh={() => loadWellnessHistory(true)} />
+          }
+          showsVerticalScrollIndicator={false}
+          ListEmptyComponent={
+            <View style={themed($emptyContainer)}>
+              <Text style={themed($emptyText)}>
+                {loading ? "Loading wellness history..." : "No wellness entries yet. Start your first check-in!"}
+              </Text>
+            </View>
+          }
         />
-      </View>
-
-      <FlatList
-        data={wellnessHistory}
-        renderItem={renderWellnessEntry}
-        keyExtractor={(item) => item.id.toString()}
-        contentContainerStyle={themed($listContainer)}
-        refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={() => loadWellnessHistory(true)} />
-        }
-        showsVerticalScrollIndicator={false}
-        ListEmptyComponent={
-          <View style={themed($emptyContainer)}>
-            <Text style={themed($emptyText)}>
-              {loading ? "Loading wellness history..." : "No wellness entries yet. Start your first check-in!"}
-            </Text>
-          </View>
-        }
-      />
+      </AnimatedScreenWrapper>
 
       {renderCheckinModal()}
     </Screen>
