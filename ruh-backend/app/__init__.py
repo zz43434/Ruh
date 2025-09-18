@@ -1,10 +1,6 @@
 from flask import Flask
 from flask_cors import CORS
-from flask_limiter import Limiter
-from flask_limiter.util import get_remote_address
 from .config import Config
-
-limiter = Limiter(key_func=get_remote_address)
 
 def create_app():
     app = Flask(__name__)
@@ -13,9 +9,6 @@ def create_app():
     # Enable CORS
     cors_origins = Config.CORS_ORIGINS if Config.CORS_ORIGINS and Config.CORS_ORIGINS != [''] else "*"
     CORS(app, origins=cors_origins)
-    
-    # Initialize rate limiting
-    limiter.init_app(app)
     
     # Initialize database
     from .models import init_db
@@ -27,11 +20,13 @@ def create_app():
     from .routes.verses import verses_bp
     from .routes.wellness import wellness_bp
     from .routes.conversations import conversations_bp
+    from .routes.translation import translation_bp
     
     app.register_blueprint(chat_bp, url_prefix='/api')
     app.register_blueprint(verses_bp, url_prefix='/api')
     app.register_blueprint(wellness_bp, url_prefix='/api')
     app.register_blueprint(conversations_bp, url_prefix='/api')
+    app.register_blueprint(translation_bp, url_prefix='/api')
     
     # Register error handlers
     from .utils.error_handlers import register_error_handlers

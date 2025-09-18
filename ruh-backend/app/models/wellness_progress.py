@@ -1,4 +1,5 @@
-from sqlalchemy import Column, Integer, String, Text
+from sqlalchemy import Column, Integer, String, Text, DateTime
+from datetime import datetime
 from app.models.database import Base
 
 class WellnessProgress(Base):
@@ -14,3 +15,4 @@ class WellnessProgress(Base):
     stress_level = Column(Integer, nullable=False)
     notes = Column(Text, nullable=True)
     analysis = Column(Text, nullable=True)
+    timestamp = Column(DateTime, default=datetime.utcnow)

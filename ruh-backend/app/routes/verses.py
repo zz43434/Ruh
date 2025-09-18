@@ -4,6 +4,40 @@ from app.services.verse_service import VerseService
 verses_bp = Blueprint('verses', __name__)
 verse_service = VerseService()
 
+@verses_bp.route('/chapters', methods=['GET'])
+def get_chapters():
+    """
+    Get a list of all Quranic chapters/surahs
+    """
+    try:
+        chapters = verse_service.get_all_chapters()
+        
+        return jsonify({
+            "chapters": chapters,
+            "total_chapters": len(chapters)
+        }), 200
+        
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@verses_bp.route('/chapters/<int:surah_number>', methods=['GET'])
+def get_chapter_details(surah_number):
+    """
+    Get detailed information about a specific chapter including its verses with translations
+    """
+    try:
+        chapter = verse_service.get_chapter_with_verses(surah_number)
+        
+        if not chapter:
+            return jsonify({"error": "Chapter not found"}), 404
+            
+        return jsonify({
+            "chapter": chapter
+        }), 200
+        
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
 @verses_bp.route('/verses', methods=['GET'])
 def get_verses():
     """

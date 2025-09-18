@@ -15,10 +15,3 @@ def register_error_handlers(app):
     @app.errorhandler(500)
     def internal_error(error):
         return jsonify({"error": "Internal server error"}), 500
-    
-    @app.errorhandler(429)
-    def rate_limit_exceeded(error):
-        return jsonify({
-            "error": "Rate limit exceeded",
-            "message": "Please try again in a few minutes"
-        }), 429

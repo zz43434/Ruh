@@ -1,20 +1,10 @@
 from flask import Blueprint, request, jsonify
-from flask_limiter import Limiter
-from flask_limiter.util import get_remote_address
 from app.services import chat_service
 from app.utils.helpers import validate_chat_request
 
 chat_bp = Blueprint('chat', __name__)
 
-# Create limiter instance
-limiter = Limiter(
-    app=None,
-    key_func=get_remote_address,
-    default_limits=["200 per day", "50 per hour"]
-)
-
 @chat_bp.route('/chat', methods=['POST'])
-@limiter.limit("10 per minute")
 def chat():
     """
     Main chat endpoint for processing user messages
@@ -46,7 +36,6 @@ def chat():
         }), 500
 
 @chat_bp.route('/chat/verse-choice', methods=['POST'])
-@limiter.limit("10 per minute")
 def handle_verse_choice():
     """
     Handle user's choice about viewing verses

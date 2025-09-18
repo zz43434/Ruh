@@ -3,8 +3,6 @@ from app.services.wellness_service import WellnessService
 from app.models.database import get_db
 
 wellness_bp = Blueprint('wellness', __name__)
-db = next(get_db())
-wellness_service = WellnessService(db=db)
 
 @wellness_bp.route('/wellness', methods=['GET'])
 def get_wellness_history():
@@ -12,6 +10,9 @@ def get_wellness_history():
     Get wellness history for a user
     """
     try:
+        db = next(get_db())
+        wellness_service = WellnessService(db=db)
+        
         user_id = request.args.get('user_id', 'default_user')
         limit = int(request.args.get('limit', 10))
         
@@ -32,6 +33,9 @@ def wellness_checkin():
     Submit a wellness check-in and get personalized guidance
     """
     try:
+        db = next(get_db())
+        wellness_service = WellnessService(db=db)
+        
         data = request.get_json()
         
         # Validate required fields
@@ -59,6 +63,9 @@ def get_wellness_stats():
     Get wellness statistics and trends for a specific user.
     """
     try:
+        db = next(get_db())
+        wellness_service = WellnessService(db=db)
+        
         user_id = request.args.get('user_id')
         if not user_id:
             return jsonify({"error": "Missing required parameter: user_id"}), 400

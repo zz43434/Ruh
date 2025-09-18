@@ -18,106 +18,92 @@ import { useNavigation } from "@react-navigation/native"
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack"
 import type { AppStackParamList } from "@/navigators/AppNavigator"
 import { api } from "@/services/api"
-import { Verse } from "@/services/api/types"
+import { Chapter } from "@/services/api/types"
 
 interface VersesScreenProps {}
 
 export const VersesScreen: FC<VersesScreenProps> = function VersesScreen() {
   const { themed, theme } = useAppTheme()
   const navigation = useNavigation<NativeStackNavigationProp<AppStackParamList>>()
-  const [verses, setVerses] = useState<Verse[]>([])
+  const [chapters, setChapters] = useState<Chapter[]>([])
   const [loading, setLoading] = useState(false)
   const [refreshing, setRefreshing] = useState(false)
   const [searchQuery, setSearchQuery] = useState("")
-  const [searchMode, setSearchMode] = useState(false)
+  const [filteredChapters, setFilteredChapters] = useState<Chapter[]>([])
 
-  const loadVerses = async (refresh = false) => {
+  const loadChapters = async (refresh = false) => {
     if (refresh) setRefreshing(true)
     else setLoading(true)
 
     try {
-      const response = await api.getVerses(20, 0)
+      const response = await api.getChapters()
       if (response.kind === "ok") {
-        setVerses(response.data.verses)
+        setChapters(response.chapters)
+        setFilteredChapters(response.chapters)
       } else {
-        Alert.alert("Error", "Failed to load verses")
+        Alert.alert("Error", "Failed to load chapters")
       }
     } catch (error) {
-      Alert.alert("Error", "Failed to load verses")
+      Alert.alert("Error", "Failed to load chapters")
     } finally {
       setLoading(false)
       setRefreshing(false)
     }
   }
 
-  const searchVerses = async () => {
-    if (!searchQuery.trim()) return
-
-    setLoading(true)
-    try {
-      const response = await api.searchVerses(searchQuery)
-      if (response.kind === "ok") {
-        setVerses(response.data.verses)
-        setSearchMode(true)
-      } else {
-        Alert.alert("Error", "Failed to search verses")
-      }
-    } catch (error) {
-      Alert.alert("Error", "Failed to search verses")
-    } finally {
-      setLoading(false)
+  const searchChapters = () => {
+    if (!searchQuery.trim()) {
+      setFilteredChapters(chapters)
+      return
     }
-  }
 
-  const getRandomVerse = async () => {
-    setLoading(true)
-    try {
-      const response = await api.getRandomVerse()
-      if (response.kind === "ok") {
-        setVerses([response.data])
-        setSearchMode(true)
-      } else {
-        Alert.alert("Error", "Failed to get random verse")
-      }
-    } catch (error) {
-      Alert.alert("Error", "Failed to get random verse")
-    } finally {
-      setLoading(false)
-    }
+    const filtered = chapters.filter(chapter =>
+      chapter.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      chapter.surah_number.toString().includes(searchQuery)
+    )
+    setFilteredChapters(filtered)
   }
 
   const clearSearch = () => {
     setSearchQuery("")
-    setSearchMode(false)
-    loadVerses()
+    setFilteredChapters(chapters)
   }
 
   useEffect(() => {
-    loadVerses()
+    loadChapters()
   }, [])
 
-  const handleVersePress = (verse: Verse) => {
-    console.log("VersesScreen - handleVersePress called with verse:", verse)
-    console.log("VersesScreen - verse properties:", {
-      chapter: verse.chapter,
-      verse: verse.verse,
-      text: verse.text,
-      translation: verse.translation
-    })
-    navigation.navigate("VerseDetails", { verse })
-  }
+  useEffect(() => {
+    searchChapters()
+  }, [searchQuery, chapters])
 
-  const renderVerse = ({ item }: { item: Verse }) => (
-    <TouchableOpacity onPress={() => handleVersePress(item)}>
+  const handleChapterPress = (chapter: Chapter) => {
+     // Navigate to chapter details - for now using VerseDetails with chapter info
+     navigation.navigate("ChapterDetails", { 
+       surahNumber: chapter.surah_number
+     })
+   }
+
+  const renderChapter = ({ item }: { item: Chapter }) => (
+    <TouchableOpacity onPress={() => handleChapterPress(item)}>
       <View style={themed($verseCard)}>
         <View style={themed($verseHeader)}>
           <Text style={themed($verseReference)}>
-            Chapter {item.chapter || item.surah_number}, Verse {item.verse || item.verse_number}
+            {item.surah_number}. {item.name}
           </Text>
         </View>
-        <Text style={themed($verseText)}>{item.text || item.arabic_text}</Text>
-        {(item.translation) && (
-          <Text style={themed($verseTranslation)}>{item.translation}</Text>
+        <Text style={themed($verseText)}>
+          {item.ayah_count} verses • {item.revelation_place}
+        </Text>
+        {item.verses_with_translation > 0 && (
+          <Text style={themed($verseTranslation)}>
+            {item.verses_with_translation} verses with translation
+          </Text>
+        )}
+        {item.summary && (
+          <Text style={themed($verseTranslation)} numberOfLines={2}>
+            {item.summary}
+          </Text>
         )}
       </View>
     </TouchableOpacity>
@@ -131,10 +117,10 @@ export const VersesScreen: FC<VersesScreenProps> = function VersesScreen() {
     >
       <View style={themed($header)}>
         <Text preset="heading" style={themed($headerTitle)}>
-          Verses
+          Chapters
         </Text>
         <Text style={themed($headerSubtitle)}>
-          Explore and search through verses
+          Explore Quran chapters
         </Text>
       </View>
 
@@ -142,46 +128,32 @@ export const VersesScreen: FC<VersesScreenProps> = function VersesScreen() {
         <TextInput
           value={searchQuery}
           onChangeText={setSearchQuery}
-          placeholder="Search verses..."
+          placeholder="Search chapters..."
           style={themed($searchInput)}
-          onSubmitEditing={searchVerses}
           placeholderTextColor={theme.colors.palette.neutral500}
         />
         <View style={themed($buttonRow)}>
           <Button
-            text="Search"
-            onPress={searchVerses}
-            style={themed($searchButton)}
-            disabled={!searchQuery.trim()}
+            text="Clear"
+            onPress={clearSearch}
+            style={themed($clearButton)}
           />
-          <Button
-            text="Random"
-            onPress={getRandomVerse}
-            style={themed($randomButton)}
-          />
-          {searchMode && (
-            <Button
-              text="Clear"
-              onPress={clearSearch}
-              style={themed($clearButton)}
-            />
-          )}
         </View>
       </View>
 
       <FlatList
-        data={verses}
-        renderItem={renderVerse}
-        keyExtractor={(item, index) => `${item.chapter}-${item.verse}-${index}`}
+        data={filteredChapters}
+        renderItem={renderChapter}
+        keyExtractor={(item) => `chapter-${item.surah_number}`}
         contentContainerStyle={themed($listContainer)}
         refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={() => loadVerses(true)} />
+          <RefreshControl refreshing={refreshing} onRefresh={() => loadChapters(true)} />
         }
         showsVerticalScrollIndicator={false}
         ListEmptyComponent={
           <View style={themed($emptyContainer)}>
             <Text style={themed($emptyText)}>
-              {loading ? "Loading verses..." : "No verses found"}
+              {loading ? "Loading chapters..." : "No chapters found"}
             </Text>
           </View>
         }

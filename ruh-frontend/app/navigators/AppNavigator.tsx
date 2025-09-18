@@ -17,9 +17,11 @@ import { ChatScreen } from "@/screens/ChatScreen"
 import { VersesScreen } from "@/screens/VersesScreen"
 import { WellnessScreen } from "@/screens/WellnessScreen"
 import { VerseDetailsScreen } from "@/screens/VerseDetailsScreen"
+import { ChapterDetailsScreen } from "@/screens/ChapterDetailsScreen"
 import { useAppTheme } from "@/theme/context"
 
 import { navigationRef, useBackButtonHandler } from "./navigationUtilities"
+import { screenAnimations, fadeAnimation, slideFromBottomAnimation } from "./animations"
 
 /**
  * This type allows TypeScript to know what routes are defined in this navigator
@@ -34,6 +36,7 @@ export type AppStackParamList = {
   Welcome: undefined
   MainTabs: NavigatorScreenParams<MainTabParamList>
   VerseDetails: { verse: import("@/services/api/types").Verse }
+  ChapterDetails: { surahNumber: number }
   // 🔥 Your screens go here
   // IGNITE_GENERATOR_ANCHOR_APP_STACK_PARAM_LIST
 }
@@ -146,11 +149,37 @@ const AppStack = () => {
         contentStyle: {
           backgroundColor: colors.background,
         },
+        ...screenAnimations.main, // Default animation for all screens
       }}
     >
-      <Stack.Screen name="Welcome" component={WelcomeScreen} />
-      <Stack.Screen name="MainTabs" component={MainTabs} />
-      <Stack.Screen name="VerseDetails" component={VerseDetailsScreen} />
+      <Stack.Screen 
+        name="Welcome" 
+        component={WelcomeScreen}
+        options={{
+          ...fadeAnimation, // Fade in for welcome screen
+        }}
+      />
+      <Stack.Screen 
+        name="MainTabs" 
+        component={MainTabs}
+        options={{
+          ...screenAnimations.main, // Slide animation for main tabs
+        }}
+      />
+      <Stack.Screen 
+        name="VerseDetails" 
+        component={VerseDetailsScreen}
+        options={{
+          ...screenAnimations.detail, // Fade animation for detail screens
+        }}
+      />
+      <Stack.Screen 
+        name="ChapterDetails" 
+        component={ChapterDetailsScreen}
+        options={{
+          ...slideFromBottomAnimation, // Modal-style animation for chapter details
+        }}
+      />
       {/** 🔥 Your screens go here */}
       {/* IGNITE_GENERATOR_ANCHOR_APP_STACK_SCREENS */}
     </Stack.Navigator>

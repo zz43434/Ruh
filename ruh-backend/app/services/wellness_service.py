@@ -120,11 +120,13 @@ class WellnessService:
             # Convert progress data to a list of dictionaries
             progress_list = [
                 {
+                    "id": p.id,
                     "mood": p.mood,
                     "energy_level": p.energy_level,
                     "stress_level": p.stress_level,
                     "notes": p.notes,
-                    "analysis": p.analysis
+                    "analysis": p.analysis,
+                    "timestamp": p.timestamp.isoformat() if p.timestamp else None
                 }
                 for p in progress
             ]

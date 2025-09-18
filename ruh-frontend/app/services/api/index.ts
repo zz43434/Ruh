@@ -5,12 +5,12 @@
  * See the [Backend API Integration](https://docs.infinite.red/ignite-cli/boilerplate/app/services/#backend-api-integration)
  * documentation for more details.
  */
-import { ApisauceInstance, create } from "apisauce"
-
-import Config from "@/config"
-
+import { ApiResponse, ApisauceInstance, create } from "apisauce"
+import Config from "../../config"
+import { GeneralApiProblem, getGeneralApiProblem } from "./apiProblem"
 import type { 
   ApiConfig, 
+  ApiFeedResponse,
   ChatInitResponse, 
   ChatMessage, 
   ChatResponse, 
@@ -18,9 +18,12 @@ import type {
   WellnessCheckin, 
   WellnessResponse, 
   WellnessHistory, 
-  VersesResponse 
+  VersesResponse,
+  Chapter,
+  ChapterDetails,
+  ChaptersResponse,
+  ChapterDetailsResponse
 } from "./types"
-import { getGeneralApiProblem } from "./apiProblem"
 
 /**
  * Configuring the apisauce instance.
@@ -108,8 +111,14 @@ export class Api {
   }
 
   // Wellness API methods
-  async getWellnessHistory(limit: number = 10, offset: number = 0): Promise<{ kind: "ok"; data: WellnessHistory } | { kind: "error"; error: any }> {
-    const response = await this.apisauce.get("/wellness", { limit, offset })
+  async getWellnessHistory(limit: number = 20, offset: number = 0, userId?: string): Promise<{ kind: "ok"; data: WellnessHistory } | { kind: "error"; error: any }> {
+    const params: any = { limit, offset }
+    
+    if (userId) {
+      params.user_id = userId
+    }
+    
+    const response = await this.apisauce.get("/wellness", params)
 
     if (!response.ok) {
       const problem = getGeneralApiProblem(response)
@@ -130,16 +139,70 @@ export class Api {
     return { kind: "ok", data: response.data as WellnessResponse }
   }
 
+  // Chapters API methods
+  async getChapters(): Promise<{ kind: "ok"; chapters: Chapter[] } | GeneralApiProblem> {
+    // make the api call
+    const response: ApiResponse<ChaptersResponse> = await this.apisauce.get(`/chapters`)
+
+    // the typical ways to die when calling an api
+    if (!response.ok) {
+      const problem = getGeneralApiProblem(response)
+      if (problem) return problem
+    }
+
+    // transform the data into the format we are expecting
+    try {
+      const rawData = response.data
+      
+      // This is where we transform the data into the shape the app expects.
+      const chapters: Chapter[] = rawData?.chapters || []
+      return { kind: "ok", chapters }
+    } catch (e) {
+      if (__DEV__ && e instanceof Error) {
+        console.error(`Bad data: ${e.message}\n${response.data}`, e.stack)
+      }
+      return { kind: "bad-data" }
+    }
+  }
+
+  async getChapterDetails(surahNumber: number): Promise<{ kind: "ok"; chapter: ChapterDetails } | GeneralApiProblem> {
+    // make the api call
+    const response: ApiResponse<ChapterDetailsResponse> = await this.apisauce.get(`/chapters/${surahNumber}`)
+
+    // the typical ways to die when calling an api
+    if (!response.ok) {
+      const problem = getGeneralApiProblem(response)
+      if (problem) return problem
+    }
+
+    // transform the data into the format we are expecting
+    try {
+      const rawData = response.data
+      
+      // This is where we transform the data into the shape the app expects.
+      const chapter: ChapterDetails = rawData?.chapter
+      if (!chapter) {
+        return { kind: "bad-data" }
+      }
+      return { kind: "ok", chapter }
+    } catch (e) {
+      if (__DEV__ && e instanceof Error) {
+        console.error(`Bad data: ${e.message}\n${response.data}`, e.stack)
+      }
+      return { kind: "bad-data" }
+    }
+  }
+
   // Verses API methods
-  async getVerses(limit: number = 10, offset: number = 0): Promise<{ kind: "ok"; data: VersesResponse } | { kind: "error"; error: any }> {
-    const response = await this.apisauce.get("/verses", { limit, offset })
+  async getVerses(page: number = 1, limit: number = 20): Promise<{ kind: "ok"; verses: any[] } | GeneralApiProblem> {
+    const response = await this.apisauce.get("/verses", { page, limit })
 
     if (!response.ok) {
       const problem = getGeneralApiProblem(response)
-      if (problem) return { kind: "error", error: problem }
+      if (problem) return problem
     }
 
-    return { kind: "ok", data: response.data as VersesResponse }
+    return { kind: "ok", verses: response.data as any[] }
   }
 
   async searchVerses(query: string): Promise<{ kind: "ok"; data: VersesResponse } | { kind: "error"; error: any }> {
@@ -162,6 +225,19 @@ export class Api {
     }
 
     return { kind: "ok", data: response.data }
+  }
+
+  // Translation API methods
+  async translateVerse(arabicText: string): Promise<{ kind: "ok"; translation: string } | { kind: "error"; error: any }> {
+    const response = await this.apisauce.post("/translate", { arabic_text: arabicText })
+
+    if (!response.ok) {
+      const problem = getGeneralApiProblem(response)
+      if (problem) return { kind: "error", error: problem }
+    }
+
+    const data = response.data as { translation: string; status: string }
+    return { kind: "ok", translation: data.translation }
   }
 }
 

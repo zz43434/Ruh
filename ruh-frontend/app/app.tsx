@@ -33,6 +33,7 @@ import { customFontsToLoad } from "./theme/typography"
 import { loadDateFnsLocale } from "./utils/formatDate"
 import * as storage from "./utils/storage"
 import { queryClient, restoreQueryClient, persistQueryClient } from "./services/queryClient"
+import { UserProvider } from "./contexts/UserContext"
 
 export const NAVIGATION_PERSISTENCE_KEY = "NAVIGATION_STATE"
 
@@ -118,15 +119,17 @@ export function App() {
   return (
     <SafeAreaProvider initialMetrics={initialWindowMetrics}>
       <QueryClientProvider client={queryClient}>
-        <KeyboardProvider>
-          <ThemeProvider>
-            <AppNavigator
-              linking={linking}
-              initialState={initialNavigationState}
-              onStateChange={onNavigationStateChange}
-            />
-          </ThemeProvider>
-        </KeyboardProvider>
+        <UserProvider>
+          <KeyboardProvider>
+            <ThemeProvider>
+              <AppNavigator
+                linking={linking}
+                initialState={initialNavigationState}
+                onStateChange={onNavigationStateChange}
+              />
+            </ThemeProvider>
+          </KeyboardProvider>
+        </UserProvider>
       </QueryClientProvider>
     </SafeAreaProvider>
   )

@@ -130,6 +130,34 @@ export interface Verse {
   surah_name?: string
   ayah_count?: number
   revelation_place?: string
+  context?: string
+}
+
+export interface Chapter {
+  surah_number: number
+  name: string
+  ayah_count: number
+  revelation_place: string
+  verses_with_translation: number
+  summary: string
+}
+
+export interface ChapterDetails {
+  surah_number: number
+  name: string
+  ayah_count: number
+  revelation_place: string
+  summary: string
+  verses: Verse[]
+}
+
+export interface ChaptersResponse {
+  chapters: Chapter[]
+  total_chapters: number
+}
+
+export interface ChapterDetailsResponse {
+  chapter: ChapterDetails
 }
 
 export interface VersesResponse {

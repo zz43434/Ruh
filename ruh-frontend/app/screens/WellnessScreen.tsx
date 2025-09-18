@@ -17,6 +17,7 @@ import { useAppTheme } from "@/theme/context"
 import type { ThemedStyle } from "@/theme/types"
 import { api } from "@/services/api"
 import { WellnessHistory, WellnessCheckin } from "@/services/api/types"
+import { useUser } from "@/contexts/UserContext"
 
 interface WellnessScreenProps {}
 
@@ -30,6 +31,7 @@ interface WellnessEntry {
 }
 
 export const WellnessScreen: FC<WellnessScreenProps> = function WellnessScreen() {
+  const { user } = useUser()
   const { themed, theme } = useAppTheme()
   const [wellnessHistory, setWellnessHistory] = useState<WellnessEntry[]>([])
   const [loading, setLoading] = useState(false)
@@ -45,17 +47,21 @@ export const WellnessScreen: FC<WellnessScreenProps> = function WellnessScreen()
   const moods = ["😊 Happy", "😌 Calm", "😐 Neutral", "😔 Sad", "😰 Anxious", "😤 Frustrated"]
 
   const loadWellnessHistory = async (refresh = false) => {
+    if (!user?.id) return
+    
     if (refresh) setRefreshing(true)
     else setLoading(true)
 
     try {
-      const response = await api.getWellnessHistory(20, 0)
+      const response = await api.getWellnessHistory(20, 0, user.id)
       if (response.kind === "ok") {
         setWellnessHistory(response.data.wellness_history)
       } else {
+        console.error('Failed to load wellness history:', response.error)
         Alert.alert("Error", "Failed to load wellness history")
       }
     } catch (error) {
+      console.error('Error loading wellness history:', error)
       Alert.alert("Error", "Failed to load wellness history")
     } finally {
       setLoading(false)
@@ -64,6 +70,11 @@ export const WellnessScreen: FC<WellnessScreenProps> = function WellnessScreen()
   }
 
   const submitCheckin = async () => {
+    if (!user?.id) {
+      Alert.alert('Error', 'User not found. Please try again.')
+      return
+    }
+    
     if (!checkinData.mood) {
       Alert.alert("Error", "Please select a mood")
       return
@@ -73,7 +84,7 @@ export const WellnessScreen: FC<WellnessScreenProps> = function WellnessScreen()
     try {
       const checkin: WellnessCheckin = {
         ...checkinData,
-        user_id: "user123", // This should come from auth context
+        user_id: user.id, // Use actual user ID from context
       }
       
       const response = await api.submitWellnessCheckin(checkin)
@@ -115,8 +126,10 @@ export const WellnessScreen: FC<WellnessScreenProps> = function WellnessScreen()
   }
 
   useEffect(() => {
-    loadWellnessHistory()
-  }, [])
+    if (user?.id) {
+      loadWellnessHistory()
+    }
+  }, [user?.id])
 
   const renderWellnessEntry = ({ item }: { item: WellnessEntry }) => (
     <View style={themed($entryCard)}>

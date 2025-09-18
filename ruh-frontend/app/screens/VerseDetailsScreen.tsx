@@ -78,7 +78,7 @@ export const VerseDetailsScreen: FC<VerseDetailsScreenProps> = function VerseDet
         {/* Verse Reference */}
         <View style={themed($referenceContainer)}>
           <Text preset="heading" style={themed($referenceText)}>
-            Chapter {verse.chapter || verse.surah_number}, Verse {verse.verse || verse.verse_number}
+            {verse.surah_name || `Chapter ${verse.chapter || verse.surah_number}`}, Verse {verse.verse || verse.verse_number}
           </Text>
         </View>
 
