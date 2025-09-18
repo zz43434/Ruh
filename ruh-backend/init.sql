@@ -1,1 +1,1 @@
-CREATE DATABASE ruh_db;
+-- This file is kept for any future database initialization needs

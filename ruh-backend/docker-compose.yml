@@ -13,6 +13,11 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./init.sql:/docker-entrypoint-initdb.d/init.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
   api:
     build: .
@@ -20,11 +25,24 @@ services:
     ports:
       - "5000:5000"
     depends_on:
-      - db
+      db:
+        condition: service_healthy
     environment:
       DATABASE_URL: postgresql+psycopg2://postgres:postgres@db:5432/ruh_db
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      FLASK_ENV: development
+      FLASK_DEBUG: true
+    volumes:
+      - .:/app
     command: >
-      sh -c "alembic upgrade head && python run.py"
+      sh -c "
+        echo 'Waiting for database to be ready...' &&
+        sleep 5 &&
+        echo 'Running migrations...' &&
+        alembic upgrade head &&
+        echo 'Starting application...' &&
+        python run.py"
 
 volumes:
   postgres_data:

@@ -7,6 +7,9 @@ class Config:
     # Flask Configuration
     SECRET_KEY = os.getenv('SECRET_KEY', 'dev-key-change-in-production')
     
+    # Database Configuration
+    DATABASE_URL = os.getenv('DATABASE_URL', 'postgresql+psycopg2://postgres:postgres@localhost:5432/ruh_db')
+    
     # Groq API Configuration
     GROQ_API_KEY = os.getenv('GROQ_API_KEY')
     
@@ -18,3 +21,6 @@ class Config:
     
     # Data Paths
     QURAN_DATA_PATH = os.getenv('QURAN_DATA_PATH', 'app/data/quran_analysis.json')
+    
+    # SQL Echo for debugging
+    SQL_ECHO = os.getenv('SQL_ECHO', 'False').lower() == 'true'

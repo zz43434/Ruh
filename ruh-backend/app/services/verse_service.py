@@ -50,6 +50,14 @@ class VerseService:
                 return verse
         return None
 
+    def get_verses(self, limit: int = 10, offset: int = 0) -> List[Dict]:
+        """
+        Get a paginated list of verses.
+        """
+        start_idx = offset
+        end_idx = offset + limit
+        return self.all_verses[start_idx:end_idx]
+
     def search_verses_by_theme(self, theme: str, max_results: int = 5, sort_by: str = 'relevance') -> List[Dict]:
         """
         Search for verses by theme or keyword in Arabic text.

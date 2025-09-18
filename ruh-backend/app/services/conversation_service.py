@@ -2,7 +2,7 @@ import uuid
 from datetime import datetime
 from typing import List, Dict, Optional
 from app.services.verse_service import VerseService
-from app.models.database import get_db
+from app.models.database import SessionLocal
 from app.models.conversation import Conversation, Message
 from sqlalchemy.orm import Session
 
@@ -10,54 +10,82 @@ class ConversationService:
     def __init__(self):
         self.verse_service = VerseService()
 
-    def start_conversation(self, user_id: str, initial_message: Optional[str] = None, db: Session = None) -> Dict:
+    def start_conversation(self, user_id: str, initial_message: Optional[str] = None) -> Dict:
         """Start a new conversation for a user."""
-        conversation = Conversation(user_id=user_id)
-        if initial_message:
-            message = Message(conversation_id=conversation.id, sender="user", content=initial_message)
-            conversation.messages.append(message)
-        db.add(conversation)
-        db.commit()
-        db.refresh(conversation)
-        return conversation
+        db = SessionLocal()
+        try:
+            conversation = Conversation(user_id=user_id)
+            db.add(conversation)
+            db.flush()  # Get the ID without committing
+            
+            if initial_message:
+                message = Message(
+                    conversation_id=conversation.id, 
+                    sender="user", 
+                    content=initial_message
+                )
+                db.add(message)
+            
+            db.commit()
+            db.refresh(conversation)
+            return self._convert_to_dict(conversation)
+        finally:
+            db.close()
 
     def get_conversation_history(self, user_id: str, limit: int = 20, offset: int = 0) -> List[Dict]:
         """Get conversation history for a user."""
-        db = get_db()
-        conversations = db.query(Conversation).filter(Conversation.user_id == user_id).order_by(Conversation.updated_at.desc()).offset(offset).limit(limit).all()
-        return [self._convert_to_dict(convo) for convo in conversations]
+        db = SessionLocal()
+        try:
+            conversations = (db.query(Conversation)
+                           .filter(Conversation.user_id == user_id)
+                           .order_by(Conversation.updated_at.desc())
+                           .offset(offset)
+                           .limit(limit)
+                           .all())
+            return [self._convert_to_dict(convo) for convo in conversations]
+        finally:
+            db.close()
 
     def send_message(self, conversation_id: str, sender: str, content: str) -> Dict:
         """Send a message in a conversation."""
-        db = get_db()
-        conversation = db.query(Conversation).filter(Conversation.id == conversation_id).first()
-        if not conversation:
-            raise ValueError("Conversation not found")
-        
-        message = Message(conversation_id=conversation_id, sender=sender, content=content)
-        db.add(message)
-        conversation.updated_at = datetime.utcnow()
-        db.commit()
-        db.refresh(conversation)
-        return self._convert_message_to_dict(message)
+        db = SessionLocal()
+        try:
+            conversation = db.query(Conversation).filter(Conversation.id == conversation_id).first()
+            if not conversation:
+                raise ValueError("Conversation not found")
+            
+            message = Message(conversation_id=conversation_id, sender=sender, content=content)
+            db.add(message)
+            conversation.updated_at = datetime.utcnow()
+            db.commit()
+            db.refresh(message)
+            return self._convert_message_to_dict(message)
+        finally:
+            db.close()
 
     def end_conversation(self, conversation_id: str) -> bool:
         """End a conversation."""
-        db = get_db()
-        conversation = db.query(Conversation).filter(Conversation.id == conversation_id).first()
-        if not conversation:
-            return False
+        db = SessionLocal()
+        try:
+            conversation = db.query(Conversation).filter(Conversation.id == conversation_id).first()
+            if not conversation:
+                return False
+            
+            conversation.status = 'ended'
+            conversation.updated_at = datetime.utcnow()
+            db.commit()
+            return True
+        finally:
+            db.close()
         
-        conversation.status = 'ended'
-        conversation.updated_at = datetime.utcnow()
-        db.commit()
-        return True
-
     def get_conversation_by_id(self, conversation_id: str) -> Optional[Dict]:
         """Get a specific conversation by ID."""
-        db = get_db()
-        conversation = db.query(Conversation).filter(Conversation.id == conversation_id).first()
-        return self._convert_to_dict(conversation) if conversation else None
+        db = SessionLocal()
+        try:
+            conversation = db.query(Conversation).filter(Conversation.id == conversation_id).first()
+            return self._convert_to_dict(conversation) if conversation else None
+        finally:
+            db.close()
 
     def _generate_ai_response(self, user_message: str) -> str:
         """Generate AI response based on user message."""

@@ -16,6 +16,11 @@ def create_app():
     # Initialize rate limiting
     limiter.init_app(app)
     
+    # Initialize database
+    from .models import init_db
+    with app.app_context():
+        init_db()
+    
     # Register blueprints
     from .routes.chat import chat_bp
     from .routes.verses import verses_bp

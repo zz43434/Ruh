@@ -4,6 +4,27 @@ from app.services.verse_service import VerseService
 verses_bp = Blueprint('verses', __name__)
 verse_service = VerseService()
 
+@verses_bp.route('/verses', methods=['GET'])
+def get_verses():
+    """
+    Get a list of Quranic verses
+    """
+    try:
+        limit = int(request.args.get('limit', 10))
+        offset = int(request.args.get('offset', 0))
+        
+        verses = verse_service.get_verses(limit=limit, offset=offset)
+        
+        return jsonify({
+            "verses": verses,
+            "limit": limit,
+            "offset": offset,
+            "total_results": len(verses)
+        }), 200
+        
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
 @verses_bp.route('/verses/search', methods=['GET', 'POST'])
 def search_verses():
     """

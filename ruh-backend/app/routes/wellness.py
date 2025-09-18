@@ -6,6 +6,26 @@ wellness_bp = Blueprint('wellness', __name__)
 db = next(get_db())
 wellness_service = WellnessService(db=db)
 
+@wellness_bp.route('/wellness', methods=['GET'])
+def get_wellness_history():
+    """
+    Get wellness history for a user
+    """
+    try:
+        user_id = request.args.get('user_id', 'default_user')
+        limit = int(request.args.get('limit', 10))
+        
+        history = wellness_service.get_tracked_progress(user_id)
+        
+        return jsonify({
+            "wellness_history": history.get("progress", [])[:limit],
+            "user_id": user_id,
+            "total_entries": len(history.get("progress", []))
+        }), 200
+        
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
 @wellness_bp.route('/wellness/checkin', methods=['POST'])
 def wellness_checkin():
     """

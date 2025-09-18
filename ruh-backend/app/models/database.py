@@ -1,12 +1,18 @@
+import os
 from sqlalchemy import create_engine
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 
-# PostgreSQL database URL
-DATABASE_URL = "postgresql+psycopg2://postgres:postgres@db:5432/ruh_db"
+# Get database URL from environment variable with fallback
+DATABASE_URL = os.getenv('DATABASE_URL', 'postgresql+psycopg2://postgres:postgres@localhost:5432/ruh_db')
 
-# Create the database engine
-engine = create_engine(DATABASE_URL)
+# Create the database engine with better configuration
+engine = create_engine(
+    DATABASE_URL,
+    pool_pre_ping=True,
+    pool_recycle=300,
+    echo=os.getenv('SQL_ECHO', 'False').lower() == 'true'
+)
 
 # Create a configured "Session" class
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
@@ -21,3 +27,7 @@ def get_db():
         yield db
     finally:
         db.close()
+
+def init_db():
+    """Initialize the database by creating all tables."""
+    Base.metadata.create_all(bind=engine)
