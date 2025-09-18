@@ -31,8 +31,8 @@ class ChatService:
             # Step 1: Analyze sentiment and themes
             sentiment_data = self._analyze_sentiment(user_message)
             
-            # Step 2: Find relevant verses
-            relevant_verses = self._find_relevant_verses(sentiment_data['themes'])
+            # Step 2: Find relevant verses using both themes and direct semantic search
+            relevant_verses = self._find_relevant_verses(sentiment_data['themes'], user_message)
             
             # Step 3: Generate AI response with context
             response = self._generate_response(
@@ -77,20 +77,36 @@ class ChatService:
                 "confidence": 0.5
             }
     
-    def _find_relevant_verses(self, themes: list[str]) -> list[Dict[str, Any]]:
-        """Find relevant Quranic verses based on themes"""
-        # Use the verse service to search for verses by theme
+    def _find_relevant_verses(self, themes: list[str], user_message: str = None) -> list[Dict[str, Any]]:
+        """Find relevant Quranic verses using RAG-based semantic search"""
         relevant_verses = []
+        
+        # First, try semantic search on the original user message if available
+        if user_message:
+            try:
+                semantic_verses = self.verse_service.search_verses_semantic(
+                    user_message, 
+                    top_k=3, 
+                    min_similarity=0.3
+                )
+                relevant_verses.extend(semantic_verses)
+            except Exception as e:
+                print(f"Error in semantic search: {e}")
+        
+        # Then search by themes (which now also uses semantic search internally)
         for theme in themes:
-            verses = self.verse_service.search_verses_by_theme(theme, max_results=2)
-            relevant_verses.extend(verses)
+            try:
+                verses = self.verse_service.search_verses_by_theme(theme, max_results=2)
+                relevant_verses.extend(verses)
+            except Exception as e:
+                print(f"Error searching by theme '{theme}': {e}")
         
         # Remove duplicates and limit to top 3
         seen_verses = set()
         unique_verses = []
         for verse in relevant_verses:
-            verse_key = verse['verse_number']
-            if verse_key not in seen_verses:
+            verse_key = verse.get('verse_number', verse.get('id', ''))
+            if verse_key and verse_key not in seen_verses:
                 seen_verses.add(verse_key)
                 unique_verses.append(verse)
                 if len(unique_verses) >= 3:

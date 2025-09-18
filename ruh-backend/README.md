@@ -5,7 +5,9 @@ A Flask-based backend API for the Ruh application, providing Islamic spiritual g
 ## Features
 
 - AI-powered chat interface using Groq API
-- Quranic verse matching and recommendations
+- **RAG-based semantic verse search** using sentence transformers
+- Quranic verse matching and recommendations with similarity scoring
+- Vector embeddings for 3,409+ Quranic verses
 - Conversation history management
 - Wellness progress tracking
 - Rate limiting and security features
@@ -18,6 +20,8 @@ A Flask-based backend API for the Ruh application, providing Islamic spiritual g
 - PostgreSQL 15+
 - Docker and Docker Compose (for containerized deployment)
 - Groq API key
+- **Sentence Transformers** (for RAG embeddings)
+- **scikit-learn** (for vector similarity calculations)
 
 ## Setup
 
@@ -72,6 +76,22 @@ Run migrations:
 alembic upgrade head
 ```
 
+#### Initialize RAG Embeddings
+
+Generate vector embeddings for all Quranic verses (required for semantic search):
+
+```bash
+python initialize_embeddings.py --verbose
+```
+
+This will:
+- Load all 3,409 Quranic verses
+- Generate embeddings using `paraphrase-multilingual-MiniLM-L12-v2` model
+- Store embeddings in the `embeddings/` directory
+- Enable semantic verse search functionality
+
+**Note**: This process may take several minutes on first run. Subsequent runs will load existing embeddings unless you use the `--force` flag.
+
 #### Start the Application
 
 ```bash
@@ -92,6 +112,7 @@ This will:
 - Start a PostgreSQL container
 - Build and run the Flask application
 - Run database migrations automatically
+- **Initialize RAG embeddings automatically**
 - Expose the API on port 5000
 
 ## API Endpoints
@@ -106,7 +127,8 @@ This will:
 
 ### Verses
 - `GET /api/verses` - Get Quranic verses
-- `GET /api/verses/search` - Search verses by topic
+- `GET /api/verses/search` - Search verses by topic (uses semantic RAG search)
+- **Semantic Search**: Powered by sentence transformers for contextual verse matching
 
 ### Wellness
 - `POST /api/wellness` - Submit wellness progress
@@ -135,6 +157,8 @@ ruh-backend/
 │   │   ├── chat_service.py
 │   │   ├── conversation_service.py
 │   │   ├── verse_service.py
+│   │   ├── embedding_service.py  # RAG embeddings management
+│   │   ├── vector_store.py       # Vector similarity search
 │   │   └── wellness_service.py
 │   └── utils/               # Utility functions
 │       ├── error_handlers.py
@@ -142,6 +166,10 @@ ruh-backend/
 │       └── logging_config.py
 ├── migrations/              # Database migrations
 ├── tests/                   # Test files
+├── embeddings/              # RAG vector embeddings storage
+├── initialize_embeddings.py # RAG setup script
+├── test_rag.py             # RAG testing script
+├── compare_search_methods.py # Search comparison tool
 ├── docker-compose.yml       # Docker configuration
 ├── Dockerfile              # Docker image definition
 ├── requirements.txt        # Python dependencies
@@ -174,6 +202,21 @@ ruh-backend/
 - `analysis` (Text)
 
 ## Development
+
+### RAG System Testing
+
+Test the semantic search functionality:
+
+```bash
+# Test RAG implementation
+python test_rag.py
+
+# Compare semantic vs keyword search
+python compare_search_methods.py
+
+# Regenerate embeddings (if needed)
+python initialize_embeddings.py --force
+```
 
 ### Running Tests
 

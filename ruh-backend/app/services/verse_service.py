@@ -1,13 +1,23 @@
 import json
 import random
 import os
-from typing import List, Dict, Optional
+from typing import List, Dict, Optional, Tuple
+from .embedding_service import EmbeddingService
+from .vector_store import VectorStoreManager
 
 class VerseService:
     def __init__(self):
         self.verses_data = self._load_verses_data()
         self.translations_data = self._load_translations_data()
         self.all_verses = self._flatten_verses()
+        
+        # Initialize RAG components
+        self.embedding_service = EmbeddingService()
+        self.vector_store_manager = VectorStoreManager()
+        self.verse_store = self.vector_store_manager.get_store("verses")
+        
+        # Load or create embeddings
+        self._initialize_embeddings()
 
     def _load_verses_data(self) -> List[Dict]:
         """
@@ -92,24 +102,132 @@ class VerseService:
 
     def search_verses_by_theme(self, theme: str, max_results: int = 5, sort_by: str = 'relevance') -> List[Dict]:
         """
-        Search for verses by theme or keyword in Arabic text.
-        Note: This is a basic implementation. For production, consider using
-        proper Arabic text search with stemming and semantic search.
+        Search for verses by theme using semantic similarity (RAG).
+        Falls back to keyword matching if embeddings are not available.
         """
         if not theme:
             return []
         
+        try:
+            # Try semantic search first
+            similar_verses = self.embedding_service.find_similar_verses(
+                query=theme, 
+                top_k=max_results, 
+                min_similarity=0.1
+            )
+            
+            if similar_verses:
+                # Convert to the expected format
+                results = []
+                for verse_data, similarity_score in similar_verses:
+                    # Add similarity score to metadata for debugging/ranking
+                    verse_data['similarity_score'] = similarity_score
+                    results.append(verse_data)
+                return results
+            
+        except Exception as e:
+            print(f"Semantic search failed, falling back to keyword search: {e}")
+        
+        # Fallback to keyword matching
+        return self._keyword_search_fallback(theme, max_results)
+    
+    def search_verses_semantic(self, query: str, max_results: int = 5, min_similarity: float = 0.1) -> List[Tuple[Dict, float]]:
+        """
+        Perform semantic search for verses using embeddings.
+        
+        Args:
+            query: The search query
+            max_results: Maximum number of results to return
+            min_similarity: Minimum similarity threshold
+            
+        Returns:
+            List of tuples (verse_data, similarity_score)
+        """
+        try:
+            return self.embedding_service.find_similar_verses(
+                query=query,
+                top_k=max_results,
+                min_similarity=min_similarity
+            )
+        except Exception as e:
+            print(f"Error in semantic search: {e}")
+            return []
+    
+    def _keyword_search_fallback(self, theme: str, max_results: int = 5) -> List[Dict]:
+        """
+        Fallback keyword search method (original implementation).
+        """
         matching_verses = []
         theme_lower = theme.lower()
         
         for verse in self.all_verses:
             # Simple keyword matching - can be enhanced with better Arabic search
             if (theme_lower in verse['arabic_text'].lower() or 
-                theme_lower in verse['surah_name'].lower()):
+                theme_lower in verse['surah_name'].lower() or
+                theme_lower in verse.get('translation', '').lower()):
                 matching_verses.append(verse)
         
         # Limit results
         return matching_verses[:max_results]
+    
+    def _initialize_embeddings(self):
+        """
+        Initialize embeddings for all verses. Creates embeddings if they don't exist.
+        """
+        try:
+            # Try to load existing embeddings
+            if not self.embedding_service.load_verse_embeddings():
+                print("No existing embeddings found. Creating new embeddings...")
+                self._create_verse_embeddings()
+            else:
+                print("Loaded existing verse embeddings")
+                
+        except Exception as e:
+            print(f"Error initializing embeddings: {e}")
+            print("Verse service will use keyword search as fallback")
+    
+    def _create_verse_embeddings(self):
+        """
+        Create embeddings for all verses and store them.
+        """
+        try:
+            if not self.all_verses:
+                print("No verses available for embedding creation")
+                return
+            
+            print(f"Creating embeddings for {len(self.all_verses)} verses...")
+            
+            # Create embeddings using the embedding service
+            self.embedding_service.create_verse_embeddings(self.all_verses)
+            
+            # Also store in vector store for future use
+            vectors = self.embedding_service.verse_embeddings
+            metadata = self.embedding_service.verse_metadata
+            
+            if vectors is not None and metadata:
+                # Generate IDs for verses
+                ids = [f"verse_{meta['verse_number']}" for meta in metadata]
+                
+                # Add to vector store
+                self.verse_store.add_vectors(vectors, metadata, ids)
+                self.verse_store.save()
+                
+                print("Successfully created and stored verse embeddings")
+            
+        except Exception as e:
+            print(f"Error creating verse embeddings: {e}")
+    
+    def get_embedding_stats(self) -> Dict:
+        """
+        Get statistics about the embedding system.
+        """
+        embedding_stats = self.embedding_service.get_embedding_stats()
+        vector_store_stats = self.verse_store.get_stats()
+        
+        return {
+            "embedding_service": embedding_stats,
+            "vector_store": vector_store_stats
+        }
 
     def get_all_verses(self) -> List[Dict]:
         """
