@@ -1,8 +1,7 @@
 from flask import Blueprint, request, jsonify
-from app.services.conversation_service import ConversationService
+from app.services import conversation_service
 
 conversations_bp = Blueprint('conversations', __name__)
-conversation_service = ConversationService()
 
 @conversations_bp.route('/conversations', methods=['GET'])
 def get_conversations():

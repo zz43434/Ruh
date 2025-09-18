@@ -1,11 +1,10 @@
 from flask import Blueprint, request, jsonify
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
-from app.services.chat_service import ChatService
+from app.services import chat_service
 from app.utils.helpers import validate_chat_request
 
 chat_bp = Blueprint('chat', __name__)
-chat_service = ChatService()
 
 # Create limiter instance
 limiter = Limiter(
@@ -34,7 +33,8 @@ def chat():
         # Process the message through the service layer
         result = chat_service.process_message(
             user_message, 
-            conversation_id
+            conversation_id,
+            user_id or "anonymous"
         )
         
         return jsonify(result), 200

@@ -3,18 +3,32 @@ from typing import Dict, Any, Optional
 from app.core.groq_client import groq_client
 from app.core import PROMPT_TEMPLATES
 from app.models.verse_matcher import VerseMatcher
+from app.services.conversation_service import ConversationService
 
 class ChatService:
     def __init__(self):
         self.verse_matcher = VerseMatcher(verses=[])
         self.groq_client = groq_client
         self.prompts = PROMPT_TEMPLATES
+        self.conversation_service = ConversationService()
     
-    def process_message(self, user_message: str, conversation_id: Optional[str] = None) -> Dict[str, Any]:
+    def process_message(self, user_message: str, conversation_id: Optional[str] = None, user_id: str = "anonymous") -> Dict[str, Any]:
         """
         Process a user message through the complete pipeline
         """
         try:
+            # Get or create conversation
+            if conversation_id and self.conversation_service.get_conversation_by_id(conversation_id):
+                # Use existing conversation
+                pass
+            else:
+                # Create new conversation
+                conversation = self.conversation_service.start_conversation(user_id)
+                conversation_id = conversation['id']
+            
+            # Add user message to conversation
+            self.conversation_service.send_message(conversation_id, "user", user_message)
+            
             # Step 1: Analyze sentiment and themes
             sentiment_data = self._analyze_sentiment(user_message)
             
@@ -26,9 +40,12 @@ class ChatService:
                 user_message, sentiment_data, relevant_verses
             )
             
+            # Add AI response to conversation
+            self.conversation_service.send_message(conversation_id, "assistant", response["response"])
+            
             return {
                 **response,
-                "conversation_id": conversation_id or self._generate_conversation_id(),
+                "conversation_id": conversation_id,
                 "timestamp": self._get_current_timestamp()
             }
             

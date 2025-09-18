@@ -10,7 +10,7 @@ class ConversationService:
         self.user_conversations = {}  # user_id -> [conversation_ids]
         self.verse_service = VerseService()
 
-    def start_conversation(self, user_id: str, initial_message: str = None) -> Dict:
+    def start_conversation(self, user_id: str, initial_message: Optional[str] = None) -> Dict:
         """Start a new conversation for a user."""
         conversation_id = str(uuid.uuid4())
         conversation = {
@@ -66,18 +66,6 @@ class ConversationService:
         
         conversation['messages'].append(message)
         conversation['updated_at'] = datetime.utcnow().isoformat()
-        
-        # Generate AI response if user message
-        if sender == 'user':
-            ai_response = self._generate_ai_response(content)
-            ai_message = {
-                'id': str(uuid.uuid4()),
-                'sender': 'assistant',
-                'content': ai_response,
-                'timestamp': datetime.utcnow().isoformat()
-            }
-            conversation['messages'].append(ai_message)
-            return ai_message
         
         return message
 
