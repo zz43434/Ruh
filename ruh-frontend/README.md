@@ -33,6 +33,96 @@
 - iOS Simulator (for iOS development)
 - Android Studio (for Android development)
 
+#### iOS Development with Xcode
+
+For iOS development, you'll need Xcode installed on macOS:
+
+**Xcode Requirements:**
+- **Xcode 14.0+** (latest version recommended)
+- **iOS SDK 16.0+** for target deployment
+- **Command Line Tools** for Xcode
+- **macOS 12.0+** (Monterey or later)
+
+**Xcode Setup Steps:**
+
+1. **Install Xcode from Mac App Store**
+   ```bash
+   # Or download from Apple Developer Portal
+   # https://developer.apple.com/xcode/
+   ```
+
+2. **Install Command Line Tools**
+   ```bash
+   xcode-select --install
+   ```
+
+3. **Accept Xcode License**
+   ```bash
+   sudo xcodebuild -license accept
+   ```
+
+4. **Configure iOS Simulator**
+   - Open Xcode → Window → Devices and Simulators
+   - Download iOS simulators for testing (iOS 16.0+ recommended)
+   - Set up preferred simulator devices (iPhone 14, iPhone 15, etc.)
+
+5. **Development Team Setup** (for device testing)
+   - Sign in to Xcode with your Apple ID
+   - Configure development team in project settings
+   - Enable developer mode on iOS device (Settings → Privacy & Security → Developer Mode)
+
+**Xcode Project Configuration:**
+- The app uses Expo development builds with custom native code
+- iOS deployment target: **iOS 13.0+**
+- Swift version: **5.0+**
+- Supports both iPhone and iPad (Universal app)
+
+**Common React Native & Expo Commands:**
+```bash
+# Run on iOS simulator
+npm run ios
+# or
+npx expo run:ios
+
+# Run on Android emulator/device
+npm run android
+# or
+npx expo run:android
+
+# Start development server
+npm start
+# or
+npx expo start --dev-client
+
+# Open iOS project in Xcode (after prebuild)
+npx expo prebuild --clean
+open ios/RuhFrontend.xcworkspace
+
+# Clean and rebuild native projects
+npx expo prebuild --clean
+
+# Build development version for iOS simulator
+npm run build:ios:sim
+
+# Build development version for iOS device
+npm run build:ios:dev
+
+# Reset Metro bundler cache
+npx expo start --clear
+
+# Reset iOS simulator
+xcrun simctl erase all
+
+# Install dependencies and align versions
+npm run align-deps
+```
+
+**Troubleshooting iOS Development:**
+- If build fails, try cleaning derived data: `rm -rf ~/Library/Developer/Xcode/DerivedData`
+- For signing issues, check Apple Developer account and certificates
+- Ensure iOS deployment target matches project requirements
+- Use `expo doctor` to diagnose common setup issues
+
 ### Installation
 
 1. **Clone the repository**
