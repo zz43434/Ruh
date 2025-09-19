@@ -65,7 +65,7 @@ export const VersesScreen: FC<VersesScreenProps> = function VersesScreen() {
       } else {
         // Fallback to local filtering if API fails
         const filtered = chapters.filter(chapter =>
-          chapter.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          chapter.surah_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
           chapter.surah_number.toString().includes(searchQuery)
         )
         setFilteredChapters(filtered)
@@ -73,7 +73,7 @@ export const VersesScreen: FC<VersesScreenProps> = function VersesScreen() {
     } catch (error) {
       // Fallback to local filtering if API fails
       const filtered = chapters.filter(chapter =>
-        chapter.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        chapter.surah_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
         chapter.surah_number.toString().includes(searchQuery)
       )
       setFilteredChapters(filtered)
@@ -109,22 +109,12 @@ export const VersesScreen: FC<VersesScreenProps> = function VersesScreen() {
       <View style={themed($verseCard)}>
         <View style={themed($verseHeader)}>
           <Text style={themed($verseReference)}>
-            {item.surah_number}. {item.name}
+            {item.surah_number}. {item.surah_name}
           </Text>
         </View>
         <Text style={themed($verseText)}>
-          {item.ayah_count} verses • {item.revelation_place}
+          {item.number_of_verses} verses • {item.revelation_place}
         </Text>
-        {item.verses_with_translation > 0 && (
-          <Text style={themed($verseTranslation)}>
-            {item.verses_with_translation} verses with translation
-          </Text>
-        )}
-        {item.summary && (
-          <Text style={themed($verseTranslation)} numberOfLines={2}>
-            {item.summary}
-          </Text>
-        )}
       </View>
     </TouchableOpacity>
   )

@@ -2,7 +2,6 @@ import logging
 from typing import Dict, Any, Optional, List
 from app.core.groq_client import groq_client
 from app.core import PROMPT_TEMPLATES
-from app.models.verse_matcher import VerseMatcher
 from app.services.conversation_service import ConversationService
 from app.services.verse_service import VerseService
 
@@ -10,8 +9,6 @@ class ChatService:
     def __init__(self):
         # Initialize verse service and get all verses for matching
         self.verse_service = VerseService()
-        verse_texts = [verse['arabic_text'] for verse in self.verse_service.get_all_verses()]
-        self.verse_matcher = VerseMatcher(verses=verse_texts)
         self.groq_client = groq_client
         self.prompts = PROMPT_TEMPLATES
         self.conversation_service = ConversationService()

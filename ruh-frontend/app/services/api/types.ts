@@ -180,11 +180,9 @@ export interface Verse {
 
 export interface Chapter {
   surah_number: number
-  name: string
-  ayah_count: number
+  surah_name: string
+  number_of_verses: number
   revelation_place: string
-  verses_with_translation: number
-  summary: string
 }
 
 export interface ChapterDetails {

@@ -7,6 +7,7 @@ import {
   RefreshControl,
   Alert,
   TouchableOpacity,
+  ScrollView,
 } from "react-native"
 import { Screen } from "@/components/Screen"
 import { Text } from "@/components/Text"
@@ -38,6 +39,7 @@ export const ChapterDetailsScreen: FC<ChapterDetailsScreenProps> = function Chap
   const [translations, setTranslations] = useState<Map<number, string>>(new Map())
   const [isTranslatingAll, setIsTranslatingAll] = useState(false)
   const [isSummaryExpanded, setIsSummaryExpanded] = useState(false)
+  const [surahSummary, setSurahSummary] = useState<string | null>(null)
 
   // Ref to track if component is mounted to prevent state updates after unmount
   const isMountedRef = useRef(true)
@@ -94,6 +96,11 @@ export const ChapterDetailsScreen: FC<ChapterDetailsScreenProps> = function Chap
       const response = await api.getChapterDetails(surahNumber)
       if (response.kind === "ok") {
         setChapterDetails(response.chapter)
+        
+        // Set surah summary if available
+        if (response.chapter.surah_summary) {
+          setSurahSummary(response.chapter.surah_summary)
+        }
         
         // Load existing translations for this chapter
         const existingTranslations = await translationStorage.getChapterTranslations(surahNumber)
@@ -291,7 +298,7 @@ export const ChapterDetailsScreen: FC<ChapterDetailsScreenProps> = function Chap
   }
 
   return (
-    <Screen preset="fixed" safeAreaEdges={["top"]} contentContainerStyle={themed($screenContentContainer)}>
+    <Screen preset="scroll" safeAreaEdges={["top"]} contentContainerStyle={themed($screenContentContainer)}>
       {/* Chapter Header */}
       <View style={themed($header)}>
         {/* Back Button */}
@@ -326,6 +333,20 @@ export const ChapterDetailsScreen: FC<ChapterDetailsScreenProps> = function Chap
           </TouchableOpacity>
         )}
         
+        {/* Surah Summary Section */}
+        {surahSummary && (
+          <View style={themed($surahSummaryContainer)}>
+            <Text style={themed($surahSummaryTitle)}>Surah Analysis</Text>
+            <ScrollView 
+              style={themed($surahSummaryScrollContainer)}
+              showsVerticalScrollIndicator={true}
+              nestedScrollEnabled={true}
+            >
+              <Text style={themed($surahSummaryText)}>{surahSummary}</Text>
+            </ScrollView>
+          </View>
+        )}
+        
         {/* Translate All Button */}
         <View style={themed($translateAllContainer)}>
           <TouchableOpacity
@@ -352,31 +373,55 @@ export const ChapterDetailsScreen: FC<ChapterDetailsScreenProps> = function Chap
       )}
 
       {/* Verses List */}
-      <FlatList
-        data={chapterDetails.verses}
-        renderItem={renderVerse}
-        keyExtractor={(item, index) => `verse-${index}`}
-        contentContainerStyle={themed($listContainer)}
-        refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={() => loadChapterDetails(true)} />
-        }
-        showsVerticalScrollIndicator={false}
-        ListEmptyComponent={
-          <View style={themed($emptyContainer)}>
-            <Text style={themed($emptyText)}>
-              No verses found for this chapter
-            </Text>
-          </View>
-        }
-      />
+      {chapterDetails.verses && chapterDetails.verses.length > 0 && (
+        <View style={themed($versesContainer)}>
+          {chapterDetails.verses.map((item, index) => {
+            const isTranslating = translatingVerses.has(index);
+            const translation = translations.get(index);
+            
+            return (
+              <View key={`verse-${index}`} style={themed($verseCard)}>
+                <View style={themed($verseHeader)}>
+                  <Text style={themed($verseNumber)}>
+                    {index + 1}
+                  </Text>
+                  <TouchableOpacity
+                    onPress={() => handleTranslateVerse(item, index)}
+                    style={themed(isTranslating ? $translateButtonLoading : translation ? $translateButtonTranslated : $translateButton)}
+                    disabled={isTranslating}
+                  >
+                    <Text style={themed(isTranslating ? $translateButtonTextLoading : translation ? $translateButtonTextTranslated : $translateButtonText)}>
+                      {isTranslating ? "Translating..." : translation ? "✓ Translated" : "Translate"}
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+                
+                <View style={themed($verseContent)}>
+                  <Text style={themed($verseText)}>{item.text || item.arabic_text}</Text>
+                  {translation && (
+                    <View style={themed($translationContainer)}>
+                      <Text style={themed($translationLabel)}>Translation:</Text>
+                      <Text style={themed($verseTranslation)}>{translation}</Text>
+                    </View>
+                  )}
+                </View>
+              </View>
+            );
+          })}
+        </View>
+      )}
     </Screen>
   )
 }
 
 // Styles
+const $versesContainer: ThemedStyle<ViewStyle> = ({ spacing }) => ({
+  marginTop: spacing.md,
+})
+
 const $screenContentContainer: ThemedStyle<ViewStyle> = ({ spacing }) => ({
-  flex: 1,
   paddingHorizontal: spacing.lg,
+  paddingBottom: spacing.xl * 2,
 })
 
 const $header: ThemedStyle<ViewStyle> = ({ spacing, colors }) => ({
@@ -400,28 +445,73 @@ const $chapterMeta: ThemedStyle<TextStyle> = ({ colors, spacing }) => ({
   color: colors.textDim,
   fontSize: 16,
   marginBottom: spacing.md,
-  fontWeight: "500",
+})
+
+const $headerTop: ThemedStyle<ViewStyle> = ({ spacing }) => ({
+  flexDirection: "row",
+  justifyContent: "space-between",
+  alignItems: "center",
+  marginBottom: spacing.sm,
+})
+
+const $headerBackButton: ThemedStyle<ViewStyle> = ({ spacing, colors }) => ({
+  padding: spacing.xs,
+  borderRadius: 8,
+  backgroundColor: colors.palette.neutral200,
+})
+
+const $headerBackButtonText: ThemedStyle<TextStyle> = ({ colors }) => ({
+  color: colors.palette.primary600,
+  fontWeight: "600",
 })
 
 const $summaryContainer: ThemedStyle<ViewStyle> = ({ spacing, colors }) => ({
   marginTop: spacing.sm,
-  backgroundColor: colors.palette.primary100,
-  borderRadius: 12,
-  padding: spacing.md,
+  marginBottom: spacing.md,
+  padding: spacing.sm,
+  backgroundColor: colors.palette.neutral200,
+  borderRadius: 8,
 })
 
 const $summaryTitle: ThemedStyle<TextStyle> = ({ colors, spacing }) => ({
-  fontSize: 18,
-  fontWeight: "700",
+  fontWeight: "600",
   color: colors.palette.primary600,
-  marginBottom: spacing.sm,
+  marginBottom: spacing.xs,
 })
 
 const $summaryText: ThemedStyle<TextStyle> = ({ colors }) => ({
-  fontSize: 16,
-  lineHeight: 24,
   color: colors.text,
-  fontStyle: "italic",
+  lineHeight: 20,
+})
+
+const $readMoreText: ThemedStyle<TextStyle> = ({ colors, spacing }) => ({
+  color: colors.palette.primary600,
+  fontWeight: "600",
+  marginTop: spacing.xs,
+})
+
+const $surahSummaryContainer: ThemedStyle<ViewStyle> = ({ spacing, colors }) => ({
+  marginTop: spacing.sm,
+  marginBottom: spacing.md,
+  padding: spacing.sm,
+  backgroundColor: colors.palette.neutral200,
+  borderRadius: 8,
+})
+
+const $surahSummaryTitle: ThemedStyle<TextStyle> = ({ colors, spacing }) => ({
+  fontWeight: "600",
+  color: colors.palette.primary600,
+  marginBottom: spacing.xs,
+})
+
+const $surahSummaryScrollContainer: ThemedStyle<ViewStyle> = ({ spacing }) => ({
+  maxHeight: 150,
+  paddingVertical: spacing.xs,
+})
+
+const $surahSummaryText: ThemedStyle<TextStyle> = ({ colors }) => ({
+  color: colors.text,
+  lineHeight: 20,
 })
 
 const $listContainer: ThemedStyle<ViewStyle> = ({ spacing }) => ({
@@ -641,31 +731,6 @@ const $translateAllButtonTextLoading: ThemedStyle<TextStyle> = ({ colors }) => (
   opacity: 0.8,
 })
 
-const $headerTop: ThemedStyle<ViewStyle> = ({ spacing }) => ({
-  marginBottom: spacing.md,
-})
-
-const $headerBackButton: ThemedStyle<ViewStyle> = ({ colors, spacing }) => ({
-  backgroundColor: colors.palette.neutral200,
-  paddingHorizontal: spacing.md,
-  paddingVertical: spacing.sm,
-  borderRadius: 8,
-  alignSelf: "flex-start",
-})
-
-const $headerBackButtonText: ThemedStyle<TextStyle> = ({ colors }) => ({
-  color: colors.palette.primary600,
-  fontSize: 16,
-  fontWeight: "600",
-})
-
-const $readMoreText: ThemedStyle<TextStyle> = ({ colors, spacing }) => ({
-  color: colors.palette.primary600,
-  fontSize: 14,
-  fontWeight: "600",
-  marginTop: spacing.xs,
-  textAlign: "center",
-})
 
 const $expandedSummaryContainer: ThemedStyle<ViewStyle> = ({ spacing, colors }) => ({
   backgroundColor: colors.palette.primary100,

@@ -4,17 +4,57 @@ from app.services.verse_service import VerseService
 verses_bp = Blueprint('verses', __name__)
 verse_service = VerseService()
 
+@verses_bp.route('/', methods=['GET'])
+def index():
+    """
+    API root endpoint that provides information about available endpoints
+    """
+    return jsonify({
+        "message": "Welcome to the Quran API",
+        "available_endpoints": {
+            "chapters": "/chapters",
+            "chapter_search": "/chapters/search",
+            "chapter_details": "/chapters/<surah_number>",
+            "verses": "/verses",
+            "verse_search": "/verses/search",
+            "random_verse": "/verses/random"
+        },
+        "documentation": "/docs"
+    }), 200
+
+
 @verses_bp.route('/chapters', methods=['GET'])
 def get_chapters():
     """
-    Get a list of all Quranic chapters/surahs
+    Get a list of all Quranic chapters/surahs with first entry for each surah
     """
     try:
-        chapters = verse_service.get_all_chapters()
+        entries = verse_service.get_first_entries_per_surah()
         
         return jsonify({
-            "chapters": chapters,
-            "total_chapters": len(chapters)
+            "chapters": entries,
+            "total_chapters": len(entries)
+        }), 200
+        
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@verses_bp.route('/chapters/<int:surah_number>', methods=['GET'])
+def get_chapter_details(surah_number):
+    """
+    Get detailed information about a specific chapter including its verses with translations
+    """
+    try:
+        
+        chapter = verse_service.get_chapter_with_verses(
+            surah_number
+        )
+        
+        if not chapter:
+            return jsonify({"error": "Chapter not found"}), 404
+            
+        return jsonify({
+            "chapter": chapter
         }), 200
         
     except Exception as e:
@@ -58,33 +98,7 @@ def search_chapters():
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
-@verses_bp.route('/chapters/<int:surah_number>', methods=['GET'])
-def get_chapter_details(surah_number):
-    """
-    Get detailed information about a specific chapter including its verses with translations
-    """
-    try:
-        # Check if summary is explicitly requested via query parameter
-        include_summary = request.args.get('include_summary', 'false').lower() == 'true'
-        
-        # Check if translations should be included (default: false for better performance)
-        include_translations = request.args.get('include_translations', 'false').lower() == 'true'
-        
-        chapter = verse_service.get_chapter_with_verses(
-            surah_number, 
-            include_summary=include_summary,
-            include_translations=include_translations
-        )
-        
-        if not chapter:
-            return jsonify({"error": "Chapter not found"}), 404
-            
-        return jsonify({
-            "chapter": chapter
-        }), 200
-        
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
+
 
 @verses_bp.route('/verses', methods=['GET'])
 def get_verses():

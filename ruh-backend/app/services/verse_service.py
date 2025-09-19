@@ -6,6 +6,7 @@ from .embedding_service import EmbeddingService
 from .vector_store import VectorStoreManager
 from app.core.groq_client import groq_client
 from app.core.prompts import PROMPT_TEMPLATES
+from app.core.qdrant_client import qdrant
 
 class VerseService:
     _instance = None
@@ -18,97 +19,13 @@ class VerseService:
     
     def __init__(self):
         if not self._initialized:
-            self.verses_data = self._load_verses_data()
-            self.translations_data = self._load_translations_data()
-            self.all_verses = self._flatten_verses()
-            
+        
             # Initialize RAG components lazily
             self.embedding_service = None
             self.vector_store_manager = None
             self.verse_store = None
             
             VerseService._initialized = True
-
-    def _load_verses_data(self) -> List[Dict]:
-        """
-        Load verses data from JSON file.
-        """
-        try:
-            data_path = os.path.join(os.path.dirname(__file__), '..', 'data', 'quran_verses.json')
-            with open(data_path, 'r', encoding='utf-8') as file:
-                return json.load(file)
-        except FileNotFoundError:
-            print("Warning: quran_verses.json not found. Using empty data.")
-            return []
-        except json.JSONDecodeError:
-            print("Warning: Invalid JSON in quran_verses.json. Using empty data.")
-            return []
-
-    def _load_translations_data(self) -> Dict:
-        """
-        Load translations data from quran_analysis.json file.
-        """
-        try:
-            data_path = os.path.join(os.path.dirname(__file__), '..', 'data', 'quran_analysis.json')
-            with open(data_path, 'r', encoding='utf-8') as file:
-                data = json.load(file)
-                # Convert to dictionary for faster lookup
-                translations = {}
-                for item in data.get('analysis', []):
-                    translations[item['verse']] = {
-                        'translation': item['translation'],
-                        'context': item.get('context', '')
-                    }
-                return translations
-        except FileNotFoundError:
-            print("Warning: quran_analysis.json not found. Using empty translations.")
-            return {}
-        except json.JSONDecodeError:
-            print("Warning: Invalid JSON in quran_analysis.json. Using empty translations.")
-            return {}
-
-    def _flatten_verses(self) -> List[Dict]:
-        """
-        Flatten all verses from all surahs into a single list.
-        """
-        all_verses = []
-        for surah in self.verses_data:
-            for verse in surah.get('verses', []):
-                # Use the verse_number directly as it's already in "surah:verse" format
-                verse_id = verse['verse_number']
-                
-                # Get translation if available
-                translation_data = self.translations_data.get(verse_id, {})
-                
-                verse_data = {
-                    'verse_number': verse['verse_number'],
-                    'arabic_text': verse['arabic_text'],
-                    'surah_number': surah['surah_number'],
-                    'surah_name': surah['name'],
-                    'ayah_count': surah['ayah_count'],
-                    'revelation_place': surah['revelation_place'],
-                    'translation': translation_data.get('translation', ''),
-                    'context': translation_data.get('context', '')
-                }
-                all_verses.append(verse_data)
-        return all_verses
-
-    def get_verse(self, verse_number: str) -> Optional[Dict]:
-        """
-        Retrieve a specific verse by its verse number (e.g., "1:1").
-        """
-        for verse in self.all_verses:
-            if verse['verse_number'] == verse_number:
-                return verse
-        return None
-
-    def get_verses(self, limit: int = 10, offset: int = 0) -> List[Dict]:
-        """
-        Get a paginated list of verses.
-        """
-        start_idx = offset
-        end_idx = offset + limit
-        return self.all_verses[start_idx:end_idx]
 
     def search_verses_by_theme(self, theme: str, max_results: int = 5, sort_by: str = 'relevance') -> List[Dict]:
         """
@@ -168,22 +85,6 @@ class VerseService:
             print(f"Error in semantic search: {e}")
             return []
     
-    def _keyword_search_fallback(self, theme: str, max_results: int = 5) -> List[Dict]:
-        """
-        Fallback keyword search method (original implementation).
-        """
-        matching_verses = []
-        theme_lower = theme.lower()
-        
-        for verse in self.all_verses:
-            # Simple keyword matching - can be enhanced with better Arabic search
-            if (theme_lower in verse['arabic_text'].lower() or 
-                theme_lower in verse['surah_name'].lower() or
-                theme_lower in verse.get('translation', '').lower()):
-                matching_verses.append(verse)
-        
-        # Limit results
-        return matching_verses[:max_results]
     
     def _ensure_embeddings_initialized(self):
         """
@@ -210,117 +111,81 @@ class VerseService:
         except Exception as e:
             print(f"Error initializing embeddings: {e}")
             print("Verse service will use keyword search as fallback")
-    
-    def _create_verse_embeddings(self):
+
+    def get_first_entries_per_surah(self) -> List[Dict]:
         """
-        Create embeddings for all verses and store them.
+        Get all entries from the Qdrant vector database, grouped by surah number and ordered ascending.
+        Returns a list of entries with surah information.
         """
         try:
-            if not self.all_verses:
-                print("No verses available for embedding creation")
-                return
+            from app.core.qdrant_client import qdrant
             
-            print(f"Creating embeddings for {len(self.all_verses)} verses...")
+            # Try to find the right collection
+            collection_name = "quran_embeddings"
+            if not collection_name:
+                return []
             
-            # Create embeddings using the embedding service
-            self.embedding_service.create_verse_embeddings(self.all_verses)
+            print(f"Using collection: {collection_name}")
             
-            # Also store in vector store for future use
-            vectors = self.embedding_service.verse_embeddings
-            metadata = self.embedding_service.verse_metadata
+            # Dictionary to store surah information and count verses
+            surah_info = {}  # surah_number -> {surah_name, surah_number, number_of_verses, revelation_place}
             
-            if vectors is not None and metadata:
-                # Generate IDs for verses
-                ids = [f"verse_{meta['verse_number']}" for meta in metadata]
-                
-                # Add to vector store
-                self.verse_store.add_vectors(vectors, metadata, ids)
-                self.verse_store.save()
-                
-                print("Successfully created and stored verse embeddings")
+            scroll_cursor = None
+            
+            while True:
+                # Scroll through points
+                try:
+                    points, scroll_cursor = qdrant.scroll_points(
+                        collection_name=collection_name,
+                        batch_size=100,
+                        scroll_filter=None,
+                        scroll_cursor=scroll_cursor
+                    )
+                    
+                    print(f"Retrieved {len(points)} points from Qdrant")
+                    
+                    if not points:
+                        print("No points returned from scroll")
+                        break
+                    
+                    for point in points:
+                        # Process each point
+                        if hasattr(point, 'payload') and point.payload:
+                            surah_number = point.payload.get("surah_number")
+                            
+                            if surah_number:
+                                if surah_number not in surah_info:
+                                    # Create new entry for this surah
+                                    surah_info[surah_number] = {
+                                        "surah_name": point.payload.get("surah_name", ""),
+                                        "surah_number": surah_number,
+                                        "number_of_verses": 1,  # Start counting verses
+                                        "revelation_place": point.payload.get("revelation_place", "")
+                                    }
+                                else:
+                                    # Increment verse count for existing surah
+                                    surah_info[surah_number]["number_of_verses"] += 1
+                    
+                    # Break if no more points
+                    if not scroll_cursor:
+                        print("No more scroll cursor, ending search")
+                        break
+                        
+                except Exception as inner_e:
+                    print(f"Error during scroll: {str(inner_e)}")
+                    break
+            
+            # Convert dictionary to list and sort by surah number
+            result = list(surah_info.values())
+            result.sort(key=lambda x: x["surah_number"])
+            
+            print(f"Returning {len(result)} surah entries")
+            return result
             
         except Exception as e:
-            print(f"Error creating verse embeddings: {e}")
-    
-    def get_embedding_stats(self) -> Dict:
-        """
-        Get statistics about the embedding system.
-        """
-        # Only initialize if embeddings are needed
-        self._ensure_embeddings_initialized()
-        
-        embedding_stats = self.embedding_service.get_embedding_stats()
-        vector_store_stats = self.verse_store.get_stats()
-        
-        return {
-            "embedding_service": embedding_stats,
-            "vector_store": vector_store_stats
-        }
-
-    def get_all_verses(self) -> List[Dict]:
-        """
-        Retrieve all verses.
-        """
-        return self.all_verses
-
-    def get_random_verse(self) -> Dict:
-        """
-        Get a random verse from the Quran.
-        """
-        if not self.all_verses:
-            # Fallback if no data is loaded
-            return {
-                "verse_number": "65:3",
-                "arabic_text": "وَمَن يَتَوَكَّلْ عَلَى ٱللَّهِ فَهُوَ حَسْبُهُۥٓ ۚ إِنَّ ٱللَّهَ بَـٰلِغُ أَمْرِهِۦ ۚ قَدْ جَعَلَ ٱللَّهُ لِكُلِّ شَىْءٍ قَدْرًا",
-                "surah_name": "At-Talaq",
-                "surah_number": 65,
-                "ayah_count": 12,
-                "revelation_place": "madinah"
-            }
-        
-        return random.choice(self.all_verses)
-
-    def get_surah_verses(self, surah_number: int) -> List[Dict]:
-        """
-        Get all verses from a specific surah.
-        """
-        return [verse for verse in self.all_verses if verse['surah_number'] == surah_number]
-
-    def get_surah_info(self, surah_number: int) -> Optional[Dict]:
-        """
-        Get information about a specific surah.
-        """
-        for surah in self.verses_data:
-            if surah['surah_number'] == surah_number:
-                return {
-                    'surah_number': surah['surah_number'],
-                    'name': surah['name'],
-                    'ayah_count': surah['ayah_count'],
-                    'revelation_place': surah['revelation_place']
-                }
-        return None
-
-    def get_all_chapters(self) -> List[Dict]:
-        """
-        Get a list of all chapters/surahs with basic information.
-        """
-        chapters = []
-        for surah in self.verses_data:
-            # Count verses with translations for this surah
-            verses_with_translation = len([
-                verse for verse in self.all_verses 
-                if verse['surah_number'] == surah['surah_number'] and verse['translation']
-            ])
+            print(f"Error fetching entries from Qdrant: {str(e)}")
+            return []
             
-            chapters.append({
-                'surah_number': surah['surah_number'],
-                'name': surah['name'],
-                'ayah_count': surah['ayah_count'],
-                'revelation_place': surah['revelation_place'],
-                'verses_with_translation': verses_with_translation
-            })
-        return chapters
-
     def search_chapters_by_theme(self, theme: str, max_results: int = 10, sort_by: str = 'relevance') -> List[Dict]:
         """
         Search for chapters by theme using semantic similarity.
@@ -388,56 +253,98 @@ class VerseService:
         # Limit results
         return matching_chapters[:max_results]
 
-    def get_chapter_with_verses(self, surah_number: int, include_summary: bool = False, include_translations: bool = True) -> Optional[Dict]:
+    def get_chapter_with_verses(self, surah_number: int) -> Optional[Dict]:
         """
         Get a chapter with all its verses. Optionally includes translations and summary.
+        Uses Qdrant client to fetch verses when available.
         
         Args:
             surah_number: The chapter number
             include_summary: Whether to generate and include AI summary (default: False)
             include_translations: Whether to include translations (default: True)
         """
-        surah_info = self.get_surah_info(surah_number)
-        if not surah_info:
-            return None
-            
-        # Get verses for this surah - optimize by filtering early
-        if include_translations:
-            # Include full verse data with translations
-            all_surah_verses = [
-                verse for verse in self.all_verses 
-                if verse['surah_number'] == surah_number
-            ]
-        else:
-            # Only include basic verse data without translations for better performance
-            all_surah_verses = []
-            for surah in self.verses_data:
-                if surah['surah_number'] == surah_number:
-                    for verse in surah.get('verses', []):
-                        verse_data = {
-                            'verse_number': verse['verse_number'],
-                            'arabic_text': verse['arabic_text'],
-                            'surah_number': surah['surah_number'],
-                            'surah_name': surah['name'],
-                            'ayah_count': surah['ayah_count'],
-                            'revelation_place': surah['revelation_place']
-                        }
-                        all_surah_verses.append(verse_data)
-                    break
-        
+        # Try to get verses from Qdrant
+        all_surah_verses = self._get_verses_from_qdrant(surah_number) 
+        print(all_surah_verses)
+
+        surah_name = all_surah_verses[0]["surah_name"]
+        ayah_count = len(all_surah_verses)
+        revelation_place = all_surah_verses[0]["revelation_place"]
+        surah_summary = all_surah_verses[0].get('surah_summary', '')
+        print(surah_summary)
         chapter_data = {
-            'surah_number': surah_info['surah_number'],
-            'name': surah_info['name'],
-            'ayah_count': surah_info['ayah_count'],
-            'revelation_place': surah_info['revelation_place'],
-            'verses': all_surah_verses
+            'surah_number': surah_number,
+            'name': surah_name,
+            'ayah_count': ayah_count,
+            'revelation_place': revelation_place,   
+            'verses': all_surah_verses,
+            'surah_summary': surah_summary
         }
         
-        # Only generate summary if explicitly requested
-        if include_summary:
-            chapter_data['summary'] = self._get_chapter_summary(surah_number)
-        
         return chapter_data
+        
+    def _get_verses_from_qdrant(self, surah_number: int) -> List[Dict]:
+        """
+        Get verses for a specific surah from Qdrant.
+        
+        Args:
+            surah_number: The chapter number
+            
+        Returns:
+            List of verse dictionaries
+        """
+        try:
+            # Try to find the right collection
+            collection_name = qdrant.find_collection("quran_embeddings")
+            if not collection_name:
+                return []
+            
+            # Filter for the specific surah
+            surah_filter = {
+                "must": [
+                    {
+                        "key": "surah_number",
+                        "match": {"value": surah_number}
+                    }
+                ]
+            }
+            
+            verses = []
+            scroll_cursor = None
+            
+            while True:
+                # Scroll through points
+                points, scroll_cursor = qdrant.scroll_points(
+                    collection_name=collection_name,
+                    batch_size=100,
+                    scroll_filter=surah_filter,
+                    scroll_cursor=scroll_cursor
+                )
+                
+                if not points:
+                    break
+                
+                for point in points:
+                    if hasattr(point, 'payload') and point.payload:
+                        verse_data = {
+                            'verse_number': point.payload.get('verse_number', ''),
+                            'arabic_text': point.payload.get('arabic_text', ''),
+                            'surah_number': point.payload.get('surah_number', surah_number),
+                            'surah_name': point.payload.get('surah_name', ''),
+                            'revelation_place': point.payload.get('revelation_place', ''),
+                            'surah_summary': point.payload.get('surah_summary', ''),
+                        }
+                        
+                        verses.append(verse_data)
+                
+                if not scroll_cursor:
+                    break
+            
+            return verses
+            
+        except Exception as e:
+            print(f"Error fetching verses from Qdrant: {str(e)}")
+            return []
 
     def _get_chapter_summary(self, surah_number: int) -> str:
         """
@@ -446,7 +353,7 @@ class VerseService:
         """
         try:
             # Get chapter info
-            surah_info = self.get_surah_info(surah_number)
+            surah_info = null
             if not surah_info:
                 return f"Chapter {surah_number} of the Holy Quran."
             
@@ -482,7 +389,7 @@ class VerseService:
             import logging
             logging.error(f"Error generating summary for chapter {surah_number}: {e}")
             # Fallback to hardcoded summaries
-            surah_info = self.get_surah_info(surah_number)
+
             return self._get_fallback_summary(surah_number, surah_info)
     
     def _get_fallback_summary(self, surah_number: int, surah_info: Dict = None) -> str:

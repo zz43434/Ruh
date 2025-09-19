@@ -129,28 +129,7 @@ class EmbeddingService:
         # Save to disk
         self._save_embeddings()
         print(f"Successfully created and saved embeddings for {len(verses)} verses")
-    
-    def load_verse_embeddings(self) -> bool:
-        """
-        Load verse embeddings from disk.
-        
-        Returns:
-            True if embeddings were loaded successfully, False otherwise
-        """
-        try:
-            if self.embeddings_file.exists():
-                with open(self.embeddings_file, 'rb') as f:
-                    data = pickle.load(f)
-                    self.verse_embeddings = data['embeddings']
-                    self.verse_metadata = data['metadata']
-                    print(f"Loaded {len(self.verse_metadata)} verse embeddings from disk")
-                    return True
-            else:
-                print("No saved embeddings found")
-                return False
-        except Exception as e:
-            print(f"Error loading embeddings: {e}")
-            return False
+
     
     def _save_embeddings(self):
         """Save embeddings and metadata to disk."""
@@ -183,9 +162,6 @@ class EmbeddingService:
         Returns:
             List of tuples (verse_metadata, similarity_score) sorted by similarity
         """
-        if self.verse_embeddings is None or self.verse_metadata is None:
-            if not self.load_verse_embeddings():
-                raise ValueError("No verse embeddings available. Please create embeddings first.")
         
         # Generate embedding for the query
         query_embedding = self.generate_embedding(query)

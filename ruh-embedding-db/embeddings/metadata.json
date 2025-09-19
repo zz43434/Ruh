@@ -1,0 +1,8 @@
+{
+  "total_items": 3438,
+  "verse_items": 3409,
+  "surah_items": 29,
+  "embedding_dim": 384,
+  "model": "all-MiniLM-L6-v2",
+  "created_at": "2025-09-19 02:28:27"
+}
