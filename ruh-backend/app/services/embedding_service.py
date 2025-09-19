@@ -5,10 +5,7 @@ Uses sentence-transformers for multilingual support including Arabic text.
 
 import numpy as np
 from sentence_transformers import SentenceTransformer
-from sklearn.metrics.pairwise import cosine_similarity
 from typing import List, Dict, Any, Tuple
-import pickle
-import os
 from pathlib import Path
 
 

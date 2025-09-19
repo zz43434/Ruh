@@ -91,6 +91,7 @@ class VerseService:
             
             # Try to find the right collection
             collection_name = "quran_embeddings"
+            # Verify collection exists
             if not collection_name:
                 return []
             

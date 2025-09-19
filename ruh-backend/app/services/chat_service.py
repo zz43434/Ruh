@@ -21,7 +21,7 @@ class ChatService:
             # Get or create conversation with context
             conversation = self.conversation_service.get_or_create_conversation(user_id)
             conversation_context = self._get_conversation_context(conversation)
-            
+            print(conversation_context)
             # Add user message to conversation
             self.conversation_service.add_message(conversation['id'], user_message, 'user')
             
@@ -81,16 +81,15 @@ class ChatService:
         # First, try semantic search on the original user message if available
         if user_message:
             try:
-                semantic_verses = self.verse_service.search_verses_semantic(
+                message_verses = self.verse_service.search_verses_by_theme(
                     user_message, 
-                    max_results=3, 
-                    min_similarity=0.3
+                    max_results=3
                 )
-                relevant_verses.extend(semantic_verses)
+                relevant_verses.extend(message_verses)
             except Exception as e:
                 print(f"Error in semantic search: {e}")
         
-        # Then search by themes (which now also uses semantic search internally)
+        # Then search by themes
         for theme in themes:
             try:
                 verses = self.verse_service.search_verses_by_theme(theme, max_results=2)
@@ -137,10 +136,7 @@ class ChatService:
         
         elif intent in ['seeking_guidance', 'emotional_support']:
             # For guidance/support, offer verses with user choice
-            if not verses:
-                # Fallback if no verses found - use a random verse for inspiration
-                fallback_verse = self.verse_service.get_random_verse()
-                verses = [fallback_verse]
+        
             
             # Instead of immediately providing verses, offer them as a choice
             prompt = self.prompts.get_general_chat_prompt_with_context(
