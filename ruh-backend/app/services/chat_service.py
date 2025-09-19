@@ -135,30 +135,19 @@ class ChatService:
             }
         
         elif intent in ['seeking_guidance', 'emotional_support']:
-            # For guidance/support, offer verses with user choice
-        
-            
-            # Instead of immediately providing verses, offer them as a choice
-            prompt = self.prompts.get_general_chat_prompt_with_context(
-                user_message=user_message,
-                sentiment=sentiment_data.get('sentiment', 'neutral'),
-                conversation_context=conversation_context
-            )
-            
-            response_text = self.groq_client.generate_response(prompt)
-            
+            # For guidance/support, only offer verses as a choice without additional message
             return {
-                "response": response_text,
-                "relevant_verses": verses,
+                "response": "",  # No additional response text
+                "relevant_verses": [],  # Don't include verses until user chooses
                 "sentiment": sentiment_data.get('sentiment', 'neutral'),
                 "themes": sentiment_data.get('themes', []),
                 "intent": intent,
                 "verse_offer": {
                     "show_options": True,
-                    "message": "I have some relevant Quranic verses that might provide comfort and guidance. Would you like me to share them with you?",
+                    "message": "Would you like me to share some relevant Quranic verses that might provide guidance?",
                     "options": [
-                        {"id": "show_verses", "text": "Yes, please share the verses", "type": "primary"},
-                        {"id": "continue_chat", "text": "No, let's continue our conversation", "type": "secondary"}
+                        {"id": "show_verses", "text": "Yes, please share", "type": "primary"},
+                        {"id": "continue_chat", "text": "No, let's continue", "type": "secondary"}
                     ]
                 }
             }
@@ -174,24 +163,62 @@ class ChatService:
 
     def handle_verse_choice(self, user_id: str, conversation_id: str, choice: str, message_id: str, original_message: str) -> Dict[str, Any]:
         """Handle user's choice about viewing verses"""
-        if choice == "primary":
-            # Get conversation to retrieve the verse data from the last bot message
+        if choice == "primary" or choice == "show_verses":
+            # Get conversation to collect all user messages
             conversation = self.conversation_service.get_conversation_by_id(conversation_id)
             conversation_context = self._get_conversation_context(conversation)
             
-            # Find the most recent bot message that contains verse data
-            verses = self._get_verses_from_last_response(conversation, original_message)
+            # Collect last 5 user messages from the conversation
+            user_messages = []
+            if conversation and 'messages' in conversation:
+                # Get all user messages first
+                all_user_messages = []
+                for message in conversation['messages']:
+                    if message.get('role') == 'user':
+                        all_user_messages.append(message.get('content', ''))
+                
+                # Take only the last 5 user messages
+                user_messages = all_user_messages[-5:] if len(all_user_messages) > 5 else all_user_messages
             
+            # Combine all user messages for emotional analysis
+            combined_messages = " ".join(user_messages) if user_messages else original_message
+            
+            # Send to Groq to analyze how the user is feeling
+            emotional_analysis_prompt = f"""
+            Analyze the emotional state and themes from these user messages: {combined_messages}
+            
+            Provide a brief analysis of:
+            1. The user's emotional state
+            2. Key themes or concerns they're expressing
+            3. What kind of guidance or support they might need
+            
+            Keep the response concise and focused on identifying themes for verse search.
+            """
+            
+            emotional_analysis = self.groq_client.generate_response(emotional_analysis_prompt)
+            print(f"Emotional analysis: {emotional_analysis}")
+            
+            # Use the emotional analysis to search for verses by theme
+            verses = self.verse_service.search_verses_by_theme(emotional_analysis, max_results=3)
+            print(f"Found verses: {verses}")
+
             if verses:
                 # Generate response with verses and context
                 best_verse = verses[0]
+                print(f"Best verse data: {best_verse}")
+                
+                # Safely get verse data with fallbacks
+                verse_text = best_verse.get('arabic_text', '')
+                surah_name = best_verse.get('surah_name', '')
+                verse_number = best_verse.get('verse_number', 1)  # Default to 1 if missing
+                
                 prompt = self.prompts.get_chat_prompt(
                     user_message=original_message,
                     sentiment="neutral",
                     themes=[],
-                    verse_text=best_verse['arabic_text'],
-                    surah_name=best_verse['surah_name'],
-                    verse_number=best_verse['verse_number'],
+                    verse_text=verse_text,
+                    surah_name=surah_name,
+                    verse_number=verse_number,
                     conversation_context=conversation_context
                 )
                 

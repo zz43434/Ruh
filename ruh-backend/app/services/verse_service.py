@@ -33,6 +33,9 @@ class VerseService:
         if not theme:
             return []
         
+        # Ensure embeddings are initialized
+        self._ensure_embeddings_initialized()
+        
         try:
             # Try semantic search first
             similar_verses = self.embedding_service.find_similar_verses(
@@ -68,7 +71,7 @@ class VerseService:
             print(f"Semantic search failed, falling back to keyword search: {e}")
         
         # Fallback to keyword matching
-        return self._keyword_search_fallback(theme, max_results)
+        return [] 
     
     
     def _ensure_embeddings_initialized(self):
