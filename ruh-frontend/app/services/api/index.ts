@@ -181,7 +181,7 @@ export class Api {
 
   async searchChapters(query: string, maxResults: number = 10): Promise<{ kind: "ok"; chapters: Chapter[] } | GeneralApiProblem> {
     // make the api call
-    const response: ApiResponse<ChaptersResponse> = await this.apisauce.get(`/chapters/search`, {
+    const response: ApiResponse<ChaptersResponse> = await this.apisauce.post(`/chapters/search`, {
       theme: query,
       max_results: maxResults
     })
@@ -233,40 +233,6 @@ export class Api {
       }
       return { kind: "bad-data" }
     }
-  }
-
-  // Verses API methods
-  async getVerses(page: number = 1, limit: number = 20): Promise<{ kind: "ok"; verses: any[] } | GeneralApiProblem> {
-    const response = await this.apisauce.get("/verses", { page, limit })
-
-    if (!response.ok) {
-      const problem = getGeneralApiProblem(response)
-      if (problem) return problem
-    }
-
-    return { kind: "ok", verses: response.data as any[] }
-  }
-
-  async searchVerses(query: string): Promise<{ kind: "ok"; data: VersesResponse } | { kind: "error"; error: any }> {
-    const response = await this.apisauce.post("/verses/search", { query })
-
-    if (!response.ok) {
-      const problem = getGeneralApiProblem(response)
-      if (problem) return { kind: "error", error: problem }
-    }
-
-    return { kind: "ok", data: response.data as VersesResponse }
-  }
-
-  async getRandomVerse(): Promise<{ kind: "ok"; data: any } | { kind: "error"; error: any }> {
-    const response = await this.apisauce.get("/verses/random")
-
-    if (!response.ok) {
-      const problem = getGeneralApiProblem(response)
-      if (problem) return { kind: "error", error: problem }
-    }
-
-    return { kind: "ok", data: response.data }
   }
 
   // Translation API methods

@@ -1,6 +1,3 @@
-import json
-import random
-import os
 from typing import List, Dict, Optional, Tuple
 from .embedding_service import EmbeddingService
 from .vector_store import VectorStoreManager
@@ -30,15 +27,13 @@ class VerseService:
     def search_verses_by_theme(self, theme: str, max_results: int = 5, sort_by: str = 'relevance') -> List[Dict]:
         """
         Search for verses by theme using semantic similarity (RAG).
+        Maps results to include complete chapter information.
         Falls back to keyword matching if embeddings are not available.
         """
         if not theme:
             return []
         
         try:
-            # Ensure embeddings are initialized only when needed
-            self._ensure_embeddings_initialized()
-            
             # Try semantic search first
             similar_verses = self.embedding_service.find_similar_verses(
                 query=theme, 
@@ -47,12 +42,26 @@ class VerseService:
             )
             
             if similar_verses:
-                # Convert to the expected format
+                # Convert to the expected format with chapter information
                 results = []
                 for verse_data, similarity_score in similar_verses:
                     # Add similarity score to metadata for debugging/ranking
                     verse_data['similarity_score'] = similarity_score
+                    
+                    # Extract chapter information directly from verse data
+                    surah_number = verse_data.get('surah_number')
+                    if surah_number:
+                        verse_data['chapter_info'] = {
+                            'surah_number': surah_number,
+                            'name': verse_data.get('surah_name', ''),
+                            'revelation_place': verse_data.get('revelation_place', ''),
+                            'verses_count': verse_data.get('verses_count', 0),
+                            'summary': verse_data.get('surah_summary', '')
+                        }
+                    
                     results.append(verse_data)
+
+                    print(results)
                 return results
             
         except Exception as e:
@@ -60,30 +69,6 @@ class VerseService:
         
         # Fallback to keyword matching
         return self._keyword_search_fallback(theme, max_results)
-    
-    def search_verses_semantic(self, query: str, max_results: int = 5, min_similarity: float = 0.1) -> List[Tuple[Dict, float]]:
-        """
-        Search verses using semantic similarity.
-        Returns list of tuples (verse_dict, similarity_score).
-        """
-        try:
-            # Ensure embeddings are initialized only when needed
-            self._ensure_embeddings_initialized()
-            
-            # Try semantic search first
-            similar_verses = self.embedding_service.find_similar_verses(
-                query, max_results, min_similarity
-            )
-            
-            if similar_verses:
-                return similar_verses
-            else:
-                # If no semantic results, return empty list
-                return []
-                
-        except Exception as e:
-            print(f"Error in semantic search: {e}")
-            return []
     
     
     def _ensure_embeddings_initialized(self):
@@ -94,23 +79,7 @@ class VerseService:
             self.embedding_service = EmbeddingService()
             self.vector_store_manager = VectorStoreManager()
             self.verse_store = self.vector_store_manager.get_store("verses")
-            self._initialize_embeddings()
     
-    def _initialize_embeddings(self):
-        """
-        Initialize embeddings for all verses. Creates embeddings if they don't exist.
-        """
-        try:
-            # Try to load existing embeddings
-            if not self.embedding_service.load_verse_embeddings():
-                print("No existing embeddings found. Creating new embeddings...")
-                self._create_verse_embeddings()
-            else:
-                print("Loaded existing verse embeddings")
-                
-        except Exception as e:
-            print(f"Error initializing embeddings: {e}")
-            print("Verse service will use keyword search as fallback")
 
     def get_first_entries_per_surah(self) -> List[Dict]:
         """
@@ -188,46 +157,59 @@ class VerseService:
             
     def search_chapters_by_theme(self, theme: str, max_results: int = 10, sort_by: str = 'relevance') -> List[Dict]:
         """
-        Search for chapters by theme using semantic similarity.
+        Search for chapters by theme using semantic similarity via find_similar_verses.
         Falls back to keyword matching if embeddings are not available.
         """
-        if not theme:
-            return self.get_all_chapters()
         
         try:
-            # Get all chapters first
-            all_chapters = self.get_all_chapters()
+            # Initialize embedding service if needed
+            if self.embedding_service is None:
+                from .embedding_service import EmbeddingService
+                self.embedding_service = EmbeddingService()
             
-            # Create search texts for each chapter (name + summary)
-            chapter_texts = []
-            for chapter in all_chapters:
-                search_text = f"{chapter['name']} {chapter.get('summary', '')}"
-                chapter_texts.append(search_text)
+            # Use find_similar_verses to get semantically similar verses
+            similar_verses = self.embedding_service.find_similar_verses(
+                query=theme,
+                top_k=max_results * 2,  # Get more results to aggregate by chapter
+                min_similarity=0.1
+            )
             
-            # Use embedding service to find similar chapters
-            if hasattr(self.embedding_service, 'model') and self.embedding_service.model:
-                # Generate embedding for the search query
-                query_embedding = self.embedding_service.model.encode([theme])
+            # Extract chapter information from similar verses
+            surah_info = {}
+            for verse_data, similarity in similar_verses:
+                surah_number = verse_data.get('surah_number')
+                if not surah_number:
+                    continue
                 
-                # Generate embeddings for chapter texts
-                chapter_embeddings = self.embedding_service.model.encode(chapter_texts)
+                if surah_number not in surah_info:
+                    surah_info[surah_number] = {
+                        "surah_name": verse_data.get("surah_name", ""),
+                        "surah_number": surah_number,
+                        "number_of_verses": 1,  # Start counting verses
+                        "revelation_place": verse_data.get("revelation_place", ""),
+                        "similarity": similarity  # Keep similarity for sorting
+                    }
+                else:
+                    # Increment verse count
+                    surah_info[surah_number]["number_of_verses"] += 1
+                    # Update similarity if this verse has higher score
+                    if similarity > surah_info[surah_number]["similarity"]:
+                        surah_info[surah_number]["similarity"] = similarity
+            
+            # Convert to list and sort
+            results = list(surah_info.values())
+            print(results)
+            
+            # Sort by relevance (similarity) or surah number
+            if sort_by == 'relevance':
+                results.sort(key=lambda x: x['similarity'], reverse=True)
+            else:
+                results.sort(key=lambda x: x['surah_number'])
+
+            print(results)
+            
                 
-                # Calculate similarities
-                from sklearn.metrics.pairwise import cosine_similarity
-                similarities = cosine_similarity(query_embedding, chapter_embeddings)[0]
-                
-                # Create results with similarity scores
-                results = []
-                for i, (chapter, similarity) in enumerate(zip(all_chapters, similarities)):
-                    if similarity > 0.1:  # Minimum similarity threshold
-                        chapter_copy = chapter.copy()
-                        chapter_copy['similarity_score'] = float(similarity)
-                        results.append(chapter_copy)
-                
-                # Sort by similarity score (descending)
-                results.sort(key=lambda x: x['similarity_score'], reverse=True)
-                
-                return results[:max_results]
+            return results[:max_results]
             
         except Exception as e:
             print(f"Semantic chapter search failed, falling back to keyword search: {e}")
@@ -241,7 +223,6 @@ class VerseService:
         """
         matching_chapters = []
         theme_lower = theme.lower()
-        all_chapters = self.get_all_chapters()
         
         for chapter in all_chapters:
             # Simple keyword matching
@@ -345,68 +326,3 @@ class VerseService:
         except Exception as e:
             print(f"Error fetching verses from Qdrant: {str(e)}")
             return []
-
-    def _get_chapter_summary(self, surah_number: int) -> str:
-        """
-        Get a summary for a chapter using Groq AI generation.
-        Falls back to hardcoded summaries if AI generation fails.
-        """
-        try:
-            # Get chapter info
-            surah_info = null
-            if not surah_info:
-                return f"Chapter {surah_number} of the Holy Quran."
-            
-            # Get sample verses from the chapter for context
-            verses = self.get_surah_verses(surah_number)
-            verses_sample = ""
-            if verses and len(verses) > 0:
-                # Take first 2-3 verses as sample context
-                sample_verses = verses[:min(3, len(verses))]
-                verses_sample = "\n".join([
-                    f"Verse {v['verse_number']}: {v.get('english_translation', v.get('arabic_text', ''))}"
-                    for v in sample_verses
-                ])
-            
-            # Generate summary using Groq
-            prompt = PROMPT_TEMPLATES.get_chapter_summary_prompt(
-                chapter_number=surah_number,
-                chapter_name=surah_info['name'],
-                verse_count=surah_info['ayah_count'],
-                verses_sample=verses_sample
-            )
-            
-            summary = groq_client.generate_response(prompt, max_tokens=200, temperature=0.7)
-            
-            # Clean up the response
-            if summary and len(summary.strip()) > 10:
-                return summary.strip()
-            else:
-                # Fallback to hardcoded if response is too short
-                return self._get_fallback_summary(surah_number, surah_info)
-                
-        except Exception as e:
-            import logging
-            logging.error(f"Error generating summary for chapter {surah_number}: {e}")
-            # Fallback to hardcoded summaries
-
-            return self._get_fallback_summary(surah_number, surah_info)
-    
-    def _get_fallback_summary(self, surah_number: int, surah_info: Dict = None) -> str:
-        """
-        Fallback hardcoded summaries for when AI generation fails.
-        """
-        summaries = {
-            1: "The Opening - A prayer for guidance and the straight path. This chapter is recited in every unit of the Muslim prayer.",
-            2: "The Cow - The longest chapter, covering various aspects of faith, law, and guidance for the Muslim community.",
-            3: "The Family of Imran - Discusses the stories of Mary, Jesus, and emphasizes the unity of God's message.",
-            4: "The Women - Addresses women's rights, family law, and social justice in Islamic society."
-        }
-        
-        if surah_number in summaries:
-            return summaries[surah_number]
-        
-        if surah_info:
-            return f"Chapter {surah_number} of the Holy Quran containing {surah_info['ayah_count']} verses."
-        else:
-            return f"Chapter {surah_number} of the Holy Quran."
