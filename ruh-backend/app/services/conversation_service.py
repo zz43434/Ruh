@@ -118,3 +118,67 @@ class ConversationService:
             'content': message.content,
             'timestamp': message.timestamp.isoformat()
         }
+    
+    
+    def clear_conversation_history(self, user_id: str) -> Dict:
+        """Clear all conversation history for a user."""
+        db = SessionLocal()
+        try:
+            # Get all conversations for the user
+            conversations = db.query(Conversation).filter(Conversation.user_id == user_id).all()
+            
+            deleted_count = 0
+            for conversation in conversations:
+                # Delete all messages in the conversation
+                db.query(Message).filter(Message.conversation_id == conversation.id).delete()
+                # Delete the conversation
+                db.delete(conversation)
+                deleted_count += 1
+            
+            db.commit()
+            return {
+                "success": True,
+                "message": f"Cleared {deleted_count} conversations for user {user_id}",
+                "deleted_conversations": deleted_count
+            }
+        except Exception as e:
+            db.rollback()
+            return {
+                "success": False,
+                "message": f"Failed to clear conversation history: {str(e)}"
+            }
+        finally:
+            db.close()
+
+    def clear_specific_conversation(self, conversation_id: str) -> Dict:
+        """Clear a specific conversation and its messages."""
+        db = SessionLocal()
+        try:
+            conversation = db.query(Conversation).filter(Conversation.id == conversation_id).first()
+            if not conversation:
+                return {
+                    "success": False,
+                    "message": "Conversation not found"
+                }
+            
+            # Delete all messages in the conversation
+            message_count = db.query(Message).filter(Message.conversation_id == conversation_id).count()
+            db.query(Message).filter(Message.conversation_id == conversation_id).delete()
+            
+            # Delete the conversation
+            db.delete(conversation)
+            db.commit()
+            
+            return {
+                "success": True,
+                "message": f"Cleared conversation {conversation_id} with {message_count} messages",
+                "deleted_messages": message_count
+            }
+        except Exception as e:
+            db.rollback()
+            return {
+                "success": False,
+                "message": f"Failed to clear conversation: {str(e)}"
+            }
+        finally:
+            db.close()

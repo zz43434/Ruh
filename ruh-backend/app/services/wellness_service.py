@@ -200,3 +200,47 @@ class WellnessService:
                 "recommendations": [],
                 "themes": []
             }
+
+    def clear_wellness_data(self, user_id: str) -> Dict:
+        """Clear all wellness data for a user."""
+        try:
+            # Get count before deletion for reporting
+            count = self.db.query(WellnessProgress).filter_by(user_id=user_id).count()
+            
+            # Delete all wellness progress entries for the user
+            self.db.query(WellnessProgress).filter_by(user_id=user_id).delete()
+            self.db.commit()
+            
+            return {
+                "success": True,
+                "message": f"Cleared {count} wellness entries for user {user_id}",
+                "deleted_entries": count
+            }
+        except Exception as e:
+            self.db.rollback()
+            return {
+                "success": False,
+                "message": f"Failed to clear wellness data: {str(e)}"
+            }
+
+    def clear_all_wellness_data(self) -> Dict:
+        """Clear all wellness data for all users (admin function)."""
+        try:
+            # Get count before deletion for reporting
+            count = self.db.query(WellnessProgress).count()
+            
+            # Delete all wellness progress entries
+            self.db.query(WellnessProgress).delete()
+            self.db.commit()
+            
+            return {
+                "success": True,
+                "message": f"Cleared all {count} wellness entries from the database",
+                "deleted_entries": count
+            }
+        except Exception as e:
+            self.db.rollback()
+            return {
+                "success": False,
+                "message": f"Failed to clear all wellness data: {str(e)}"
+            }

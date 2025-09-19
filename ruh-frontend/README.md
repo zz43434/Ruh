@@ -1,77 +1,230 @@
-# Welcome to your new ignited app!
+# Ruh Frontend
 
-> The latest and greatest boilerplate for Infinite Red opinions
+**Ruh** (Arabic: روح - meaning "soul" or "spirit") is a React Native mobile application that provides AI-powered Islamic spiritual guidance through intelligent conversations and semantic Quranic verse search.
 
-This is the boilerplate that [Infinite Red](https://infinite.red) uses as a way to test bleeding-edge changes to our React Native stack.
+## 🌟 Features
 
-- [Quick start documentation](https://github.com/infinitered/ignite/blob/master/docs/boilerplate/Boilerplate.md)
-- [Full documentation](https://github.com/infinitered/ignite/blob/master/docs/README.md)
+- **Intelligent Chat Interface**: Natural conversations with AI-powered Islamic spiritual guidance
+- **Semantic Verse Search**: Find relevant Quranic verses using advanced RAG technology
+- **Wellness Tracking**: Monitor your spiritual and emotional well-being journey
+- **Comprehensive Verse Library**: Browse all 114 Surahs with detailed verse information
+- **Cross-platform**: Native iOS and Android experience with Expo
+- **Modern UI**: Clean, intuitive interface with Islamic design elements
+- **Offline Support**: Works without internet connection for core features
 
-## Getting Started
+## 🛠️ Tech Stack
+
+- **React Native** with **Expo** for cross-platform development
+- **TypeScript** for type safety
+- **React Navigation** for navigation management
+- **React Query** for server state management
+- **Async Storage** for local data persistence
+- **Apisauce** for API communication
+- **i18next** for internationalization
+- **Custom theming system** with Islamic design elements
+
+## 🚀 Getting Started
+
+### Prerequisites
+
+- Node.js 18+ 
+- npm or yarn
+- Expo CLI
+- iOS Simulator (for iOS development)
+- Android Studio (for Android development)
+
+### Installation
+
+1. **Clone the repository**
+   ```bash
+   git clone <repository-url>
+   cd ruh-frontend
+   ```
+
+2. **Install dependencies**
+   ```bash
+   npm install
+   ```
+
+3. **Start the development server**
+   ```bash
+   npm run start
+   ```
+
+### Development Builds
+
+For local development with custom native code:
 
 ```bash
-npm install
-npm run start
+# iOS Simulator
+npm run build:ios:sim
+
+# iOS Device (Development)
+npm run build:ios:dev
+
+# Android Simulator
+npm run build:android:sim
+
+# Android Device (Development)
+npm run build:android:dev
 ```
 
-To make things work on your local simulator, or on your phone, you need first to [run `eas build`](https://github.com/infinitered/ignite/blob/master/docs/expo/EAS.md). We have many shortcuts on `package.json` to make it easier:
+### Production Builds
 
 ```bash
-npm run build:ios:sim # build for ios simulator
-npm run build:ios:dev # build for ios device
-npm run build:ios:prod # build for ios device
+# iOS Production
+npm run build:ios:prod
+
+# Android Production
+npm run build:android:prod
 ```
 
-### `./assets` directory
+## 📱 App Structure
 
-This directory is designed to organize and store various assets, making it easy for you to manage and use them in your application. The assets are further categorized into subdirectories, including `icons` and `images`:
+### Core Screens
+- **Chat Screen**: AI-powered spiritual guidance conversations
+- **Verses Screen**: Browse and search Quranic verses
+- **Wellness Screen**: Track spiritual and emotional well-being
+- **Verse Details**: Detailed view of individual verses
+- **Chapter Details**: Complete Surah information and verses
 
-```tree
-assets
-├── icons
-└── images
+### Navigation
+The app uses tab-based navigation with the following main sections:
+- 💬 **Chat**: Spiritual guidance conversations
+- 📖 **Verses**: Quranic verse library and search
+- 🌱 **Wellness**: Spiritual wellness tracking
+
+## 🏗️ Project Structure
+
+```
+ruh-frontend/
+├── app/
+│   ├── components/          # Reusable UI components
+│   ├── screens/            # Screen components
+│   │   ├── ChatScreen/     # AI chat interface
+│   │   ├── VersesScreen/   # Verse browsing and search
+│   │   ├── WellnessScreen/ # Wellness tracking
+│   │   └── VerseDetailsScreen/ # Individual verse details
+│   ├── navigators/         # Navigation configuration
+│   ├── services/           # API services and data layer
+│   ├── contexts/           # React contexts for state management
+│   ├── theme/              # Theming and styling
+│   ├── utils/              # Utility functions
+│   ├── i18n/               # Internationalization
+│   └── config/             # App configuration
+├── assets/
+│   ├── icons/              # App icons and UI icons
+│   └── images/             # Images and graphics
+├── .maestro/               # End-to-end test flows
+└── test/                   # Unit tests
 ```
 
-**icons**
-This is where your icon assets will live. These icons can be used for buttons, navigation elements, or any other UI components. The recommended format for icons is PNG, but other formats can be used as well.
+## 🎨 Assets
 
-Ignite comes with a built-in `Icon` component. You can find detailed usage instructions in the [docs](https://github.com/infinitered/ignite/blob/master/docs/boilerplate/app/components/Icon.md).
+### Icons
+Located in `./assets/icons/` - Used for navigation, buttons, and UI elements. The app includes a built-in `Icon` component for easy icon usage.
 
-**images**
-This is where your images will live, such as background images, logos, or any other graphics. You can use various formats such as PNG, JPEG, or GIF for your images.
+### Images
+Located in `./assets/images/` - Contains app graphics, backgrounds, and Islamic design elements.
 
-Another valuable built-in component within Ignite is the `AutoImage` component. You can find detailed usage instructions in the [docs](https://github.com/infinitered/ignite/blob/master/docs/Components-AutoImage.md).
-
-How to use your `icon` or `image` assets:
-
+**Usage Example:**
 ```typescript
 import { Image } from 'react-native';
 
 const MyComponent = () => {
   return (
-    <Image source={require('assets/images/my_image.png')} />
+    <Image source={require('assets/images/islamic_pattern.png')} />
   );
 };
 ```
 
-## Running Maestro end-to-end tests
+## 🔧 Development
 
-Follow our [Maestro Setup](https://ignitecookbook.com/docs/recipes/MaestroSetup) recipe.
+### Available Scripts
 
-## Next Steps
+- `npm run start` - Start Expo development server
+- `npm run android` - Run on Android
+- `npm run ios` - Run on iOS
+- `npm run web` - Run on web
+- `npm run test` - Run unit tests
+- `npm run test:watch` - Run tests in watch mode
+- `npm run lint` - Run ESLint
+- `npm run compile` - TypeScript compilation check
 
-### Ignite Cookbook
+### Testing
 
-[Ignite Cookbook](https://ignitecookbook.com/) is an easy way for developers to browse and share code snippets (or “recipes”) that actually work.
+#### Unit Tests
+```bash
+npm run test
+```
 
-### Upgrade Ignite boilerplate
+#### End-to-End Tests (Maestro)
+```bash
+npm run test:maestro
+```
 
-Read our [Upgrade Guide](https://ignitecookbook.com/docs/recipes/UpdatingIgnite) to learn how to upgrade your Ignite project.
+Follow our [Maestro Setup](https://ignitecookbook.com/docs/recipes/MaestroSetup) guide for e2e testing.
 
-## Community
+### Code Quality
 
-⭐️ Help us out by [starring on GitHub](https://github.com/infinitered/ignite), filing bug reports in [issues](https://github.com/infinitered/ignite/issues) or [ask questions](https://github.com/infinitered/ignite/discussions).
+The project uses:
+- **ESLint** for code linting
+- **TypeScript** for type checking
+- **Prettier** for code formatting
 
-💬 Join us on [Slack](https://join.slack.com/t/infiniteredcommunity/shared_invite/zt-1f137np4h-zPTq_CbaRFUOR_glUFs2UA) to discuss.
+## 🌐 API Integration
 
-📰 Make our Editor-in-chief happy by [reading the React Native Newsletter](https://reactnativenewsletter.com/).
+The app connects to the Ruh backend API for:
+- **Chat conversations** with AI spiritual guidance
+- **Verse search** using semantic RAG technology
+- **Wellness data** tracking and analytics
+- **User preferences** and conversation history
+
+API base URL is configured in `app/config/config.ts`
+
+## 🎯 Key Features Implementation
+
+### Chat Interface
+- Real-time messaging with AI
+- Conversation history persistence
+- Verse recommendation system
+- Emotional state analysis
+
+### Verse Search
+- Semantic search powered by RAG
+- Filter by Surah, theme, or keyword
+- Detailed verse information with context
+- Arabic text with translations
+
+### Wellness Tracking
+- Daily mood and energy tracking
+- Progress visualization
+- Personal reflection notes
+- Spiritual journey insights
+
+## 🚀 Deployment
+
+### Development
+The app uses Expo's development build system for testing on physical devices.
+
+### Production
+Production builds are created using EAS Build:
+- iOS: App Store distribution
+- Android: Google Play Store distribution
+
+## 🤝 Contributing
+
+1. Fork the repository
+2. Create a feature branch
+3. Make your changes
+4. Add tests for new functionality
+5. Ensure all tests pass
+6. Submit a pull request
+
+## 📄 License
+
+This project is licensed under the MIT License.
+
+---
+
+**Ruh** - Bridging traditional Islamic wisdom with modern AI technology to provide personalized spiritual guidance for Muslims worldwide.

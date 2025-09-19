@@ -278,7 +278,7 @@ export const ChatScreen: FC = function ChatScreen() {
                   <TouchableOpacity
                     key={option.id}
                     style={themed($verseOptionButton)}
-                    onPress={() => handleVerseChoice(option.type, item.id, item.originalMessage || "")}
+                    onPress={() => handleVerseChoice(option.id, item.id, item.originalMessage || "")}
                   >
                     <Text style={themed($verseOptionText)}>{option.text}</Text>
                   </TouchableOpacity>

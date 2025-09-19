@@ -112,8 +112,78 @@ class ChatService:
     
     def _generate_response(self, user_message: str, sentiment_data: Dict[str, Any], 
                            verses: list[Dict[str, Any]], conversation_context: Dict[str, Any] = None) -> Dict[str, Any]:
-        """Generate response based on user intent and context"""
+        """Generate dynamic response with automatic verse checking"""
         intent = sentiment_data.get('intent', 'general_chat')
+        
+        # Always check for relevant verses using the user's message
+        relevant_verses = []
+        try:
+            # Search for verses related to the user's message
+            search_verses = self.verse_service.search_verses_by_theme(user_message, max_results=3)
+            
+            # Include verses if they have good relevance (similarity > 0.3)
+            if search_verses:
+                for verse in search_verses:
+                    similarity = verse.get('similarity_score', 0)
+                    if similarity > 0.3:  # Only include highly relevant verses
+                        relevant_verses.append(verse)
+                        
+            # If no highly relevant verses, but user needs guidance, use the pre-found verses
+            if not relevant_verses and intent in ['seeking_guidance', 'emotional_support'] and verses:
+                relevant_verses = verses[:1]  # Take the best one
+                
+        except Exception as e:
+            print(f"Error searching for verses: {e}")
+            # Fallback to pre-found verses if search fails
+            if intent in ['seeking_guidance', 'emotional_support'] and verses:
+                relevant_verses = verses[:1]
+        
+        # Generate response based on whether we have relevant verses
+        if relevant_verses:
+            # Include verses in the response naturally
+            best_verse = relevant_verses[0]
+            
+            # Safely get verse data with fallbacks
+            verse_text = best_verse.get('arabic_text', '')
+            surah_name = best_verse.get('surah_name', '')
+            verse_number = best_verse.get('verse_number', 1)
+            
+            prompt = self.prompts.get_chat_prompt(
+                user_message=user_message,
+                sentiment=sentiment_data.get('sentiment', 'neutral'),
+                themes=sentiment_data.get('themes', []),
+                verse_text=verse_text,
+                surah_name=surah_name,
+                verse_number=verse_number,
+                conversation_context=conversation_context
+            )
+            
+            response_text = self.groq_client.generate_response(prompt)
+            
+            return {
+                "response": response_text,
+                "relevant_verses": relevant_verses,
+                "sentiment": sentiment_data.get('sentiment', 'neutral'),
+                "themes": sentiment_data.get('themes', []),
+                "intent": intent
+            }
+        else:
+            # No relevant verses, provide general Islamic conversation
+            prompt = self.prompts.get_general_chat_prompt_with_context(
+                user_message=user_message,
+                sentiment=sentiment_data.get('sentiment', 'neutral'),
+                conversation_context=conversation_context
+            )
+            
+            response_text = self.groq_client.generate_response(prompt)
+            
+            return {
+                "response": response_text,
+                "relevant_verses": [],
+                "sentiment": sentiment_data.get('sentiment', 'neutral'),
+                "themes": sentiment_data.get('themes', []),
+                "intent": intent
+            }
         
         # Handle different conversation intents
         if intent == 'general_chat':
@@ -135,6 +205,52 @@ class ChatService:
             }
         
         elif intent in ['seeking_guidance', 'emotional_support']:
+            # For guidance/support, provide verses directly with Islamic spiritual guidance
+            if verses:
+                best_verse = verses[0]
+                
+                # Safely get verse data with fallbacks
+                verse_text = best_verse.get('arabic_text', '')
+                surah_name = best_verse.get('surah_name', '')
+                verse_number = best_verse.get('verse_number', 1)
+                
+                prompt = self.prompts.get_chat_prompt(
+                    user_message=user_message,
+                    sentiment=sentiment_data.get('sentiment', 'neutral'),
+                    themes=sentiment_data.get('themes', []),
+                    verse_text=verse_text,
+                    surah_name=surah_name,
+                    verse_number=verse_number,
+                    conversation_context=conversation_context
+                )
+                
+                response_text = self.groq_client.generate_response(prompt)
+                
+                return {
+                    "response": response_text,
+                    "relevant_verses": verses,
+                    "sentiment": sentiment_data.get('sentiment', 'neutral'),
+                    "themes": sentiment_data.get('themes', []),
+                    "intent": intent
+                }
+            else:
+                # If no verses found, still provide Islamic spiritual guidance
+                prompt = self.prompts.get_general_chat_prompt_with_context(
+                    user_message=user_message,
+                    sentiment=sentiment_data.get('sentiment', 'neutral'),
+                    conversation_context=conversation_context
+                )
+                
+                response_text = self.groq_client.generate_response(prompt)
+                
+                return {
+                    "response": response_text,
+                    "relevant_verses": [],
+                    "sentiment": sentiment_data.get('sentiment', 'neutral'),
+                    "themes": sentiment_data.get('themes', []),
+                    "intent": intent
+                }
+
             # For guidance/support, only offer verses as a choice without additional message
             return {
                 "response": "",  # No additional response text
@@ -185,14 +301,14 @@ class ChatService:
             
             # Send to Groq to analyze how the user is feeling
             emotional_analysis_prompt = f"""
-            Analyze the emotional state and themes from these user messages: {combined_messages}
+            Analyze these user messages from an Islamic spiritual guidance perspective: {combined_messages}
             
-            Provide a brief analysis of:
-            1. The user's emotional state
-            2. Key themes or concerns they're expressing
-            3. What kind of guidance or support they might need
+            Identify:
+            1. What spiritual challenges or concerns they're facing
+            2. What Islamic themes or concepts would be most helpful (e.g., tawakkul, sabr, gratitude, dua)
+            3. What type of Quranic guidance they need (comfort, strength, wisdom, patience, etc.)
             
-            Keep the response concise and focused on identifying themes for verse search.
+            Focus on spiritual needs rather than psychological analysis. Keep response concise and focused on finding relevant Quranic themes.
             """
             
             emotional_analysis = self.groq_client.generate_response(emotional_analysis_prompt)

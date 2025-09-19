@@ -41,3 +41,39 @@ def get_conversation(conversation_id):
         
     except Exception as e:
         return jsonify({"error": str(e)}), 500
+
+@conversations_bp.route('/conversations/clear', methods=['DELETE'])
+def clear_conversation_history():
+    """
+    Clear all conversation history for a user
+    """
+    try:
+        user_id = request.args.get('user_id')
+        if not user_id:
+            return jsonify({"error": "user_id parameter is required"}), 400
+        
+        result = conversation_service.clear_conversation_history(user_id)
+        
+        if result["success"]:
+            return jsonify(result), 200
+        else:
+            return jsonify(result), 500
+        
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@conversations_bp.route('/conversations/<conversation_id>/clear', methods=['DELETE'])
+def clear_specific_conversation(conversation_id):
+    """
+    Clear a specific conversation and its messages
+    """
+    try:
+        result = conversation_service.clear_specific_conversation(conversation_id)
+        
+        if result["success"]:
+            return jsonify(result), 200
+        else:
+            return jsonify(result), 404 if "not found" in result["message"].lower() else 500
+        
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
