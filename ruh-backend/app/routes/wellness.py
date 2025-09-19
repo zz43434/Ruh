@@ -7,7 +7,8 @@ wellness_bp = Blueprint('wellness', __name__)
 @wellness_bp.route('/wellness', methods=['GET'])
 def get_wellness_history():
     """
-    Get wellness history for a user
+    Get wellness history and stats for a user
+    Consolidated endpoint that handles both history and stats
     """
     try:
         db = next(get_db())
@@ -17,14 +18,15 @@ def get_wellness_history():
         limit = int(request.args.get('limit', 10))
         offset = int(request.args.get('offset', 0))
         
-        history = wellness_service.get_tracked_progress(user_id, limit=limit, offset=offset)
+        history = wellness_service.get_wellness_history(user_id, limit=limit, offset=offset)
         
-        return jsonify({
+        response = {
             "wellness_history": history.get("wellness_history", []),
             "user_id": user_id,
-            "total_entries": history.get("total_entries", 0),
-            "trend_analysis": history.get("trend_analysis")
-        }), 200
+            "total_entries": history.get("total_entries", 0)
+        }
+        
+        return jsonify(response), 200
         
     except Exception as e:
         return jsonify({"error": str(e)}), 500
@@ -59,139 +61,10 @@ def wellness_checkin():
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
-@wellness_bp.route('/wellness/stats', methods=['GET'])
-def get_wellness_stats():
-    """
-    Get wellness statistics and trends for a specific user.
-    """
-    try:
-        db = next(get_db())
-        wellness_service = WellnessService(db=db)
-        
-        user_id = request.args.get('user_id')
-        if not user_id:
-            return jsonify({"error": "Missing required parameter: user_id"}), 400
-
-        # Fetch tracked progress for the user
-        progress_data = wellness_service.get_tracked_progress(user_id).get("progress", [])
-
-        if not progress_data:
-            return jsonify({
-                "message": "No progress data found for the user.",
-                "user_id": user_id,
-                "stats": []
-            }), 200
-
-        # Pass the progress data to Groq for analysis
-        groq_analysis = wellness_service.analyze_with_groq(progress_data)
-
-        return jsonify({
-            "message": "Wellness statistics retrieved successfully.",
-            "user_id": user_id,
-            "stats": groq_analysis
-        }), 200
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
-
-@wellness_bp.route('/wellness/categories', methods=['GET'])
-def get_wellness_categories():
-    """
-    Get all available wellness categories
-    """
-    try:
-        wellness_service = WellnessService()
-        
-        categories = wellness_service.get_wellness_categories()
-        
-        return jsonify({
-            "categories": categories,
-            "total_categories": len(categories)
-        }), 200
-        
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
-
-@wellness_bp.route('/wellness/analyze', methods=['POST'])
-def analyze_wellness_need():
-    """
-    Analyze user input to provide personalized Quranic guidance for wellness needs
-    """
-    try:
-        wellness_service = WellnessService()
-        
-        data = request.get_json()
-        
-        if not data or 'user_input' not in data:
-            return jsonify({"error": "Missing required field: user_input"}), 400
-        
-        user_input = data['user_input']
-        max_verses = data.get('max_verses', 5)
-        
-        if not user_input.strip():
-            return jsonify({"error": "User input cannot be empty"}), 400
-        
-        analysis_result = wellness_service.analyze_wellness_need(user_input, max_verses)
-        
-        return jsonify({
-            "success": True,
-            "analysis": analysis_result
-        }), 200
-        
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
-
-@wellness_bp.route('/wellness/category/<category_id>/verses', methods=['GET'])
-def get_category_verses(category_id):
-    """
-    Get verses for a specific wellness category
-    """
-    try:
-        wellness_service = WellnessService()
-        
-        max_verses = request.args.get('max_verses', 10, type=int)
-        result = wellness_service.get_category_verses(category_id, max_verses)
-        
-        return jsonify(result), 200
-        
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
-
-@wellness_bp.route('/wellness/guidance', methods=['POST'])
-def get_wellness_guidance():
-    """
-    Get personalized wellness guidance based on user input
-    """
-    try:
-        wellness_service = WellnessService()
-        
-        data = request.get_json()
-        
-        if not data or 'situation' not in data:
-            return jsonify({"error": "Missing required field: situation"}), 400
-        
-        situation = data['situation']
-        categories = data.get('categories', [])
-        
-        # Analyze the situation to get comprehensive guidance
-        analysis = wellness_service.analyze_wellness_need(situation, max_verses=3)
-        
-        return jsonify({
-            "success": True,
-            "situation": situation,
-            "guidance": analysis.get('guidance', ''),
-            "detected_categories": analysis.get('detected_categories', []),
-            "relevant_verses": analysis.get('verses', []),
-            "recommendations": analysis.get('recommendations', [])
-        }), 200
-        
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
-
 @wellness_bp.route('/wellness/ai-analysis', methods=['POST'])
 def get_ai_wellness_analysis():
     """
     Get AI-powered wellness analysis with Islamic themes and verse recommendations.
-    Requires sufficient check-ins and user request.
     """
     try:
         db = next(get_db())
@@ -199,28 +72,31 @@ def get_ai_wellness_analysis():
         
         data = request.get_json()
         
-        # Validate required fields
         if not data or 'user_id' not in data:
             return jsonify({"error": "Missing required field: user_id"}), 400
-        
+            
         user_id = data['user_id']
-        min_checkins = data.get('min_checkins', 3)  # Default minimum 3 check-ins
         
-        # Get AI-powered analysis
-        analysis_result = wellness_service.analyze_wellness_with_ai(user_id, min_checkins)
+        # Get user's wellness history
+        history = wellness_service.get_wellness_history(user_id)
+        progress_data = history.get("wellness_history", [])
         
-        # Handle insufficient data case
-        if analysis_result.get("status") == "insufficient_data":
-            return jsonify(analysis_result), 200  # 200 OK but with insufficient data message
+        # Check if there's any data - use a more lenient check
+        if len(progress_data) == 0:
+            return jsonify({
+                "message": "Not enough wellness data for analysis.",
+                "user_id": user_id,
+                "analysis": None
+            }), 200
+            
+        # Generate AI analysis
+        analysis = wellness_service.analyze_with_groq(progress_data)
         
-        # Handle error case
-        if analysis_result.get("status") == "error":
-            return jsonify(analysis_result), 500
-        
-        return jsonify(analysis_result), 200
+        return jsonify({
+            "success": True,
+            "user_id": user_id,
+            "analysis": analysis
+        }), 200
         
     except Exception as e:
-        return jsonify({
-            "status": "error",
-            "message": f"Analysis request failed: {str(e)}"
-        }), 500
+        return jsonify({"error": str(e)}), 500

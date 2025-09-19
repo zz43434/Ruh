@@ -27,22 +27,34 @@ class GroqClient:
             raise
     
     @retry(stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, min=4, max=10))
-    def generate_response(self, prompt: str, max_tokens: int = 500, temperature: float = 0.7) -> str:
+    def generate_response(self, prompt: str = None, system_prompt: str = None, max_tokens: int = 500, temperature: float = 0.7, model: str = "llama-3.1-8b-instant") -> str:
         """
         Generate a response using Groq API with retry logic
         
         Args:
-            prompt: The prompt to send to the model
+            prompt: The combined prompt to send to the model (deprecated, use system_prompt and user_prompt instead)
+            system_prompt: Optional system instructions for the model
+            user_prompt: The user's prompt/query for the model
             max_tokens: Maximum tokens to generate
             temperature: Creativity temperature (0.0 to 1.0)
+            model: The model to use for generation
         
         Returns:
             Generated text response
         """
         try:
+            # Build messages array based on provided prompts
+            messages = []
+            
+            # Add system message if provided
+            if system_prompt:
+                messages.append({"role": "system", "content": system_prompt})
+            
+            messages.append({"role": "user", "content": prompt})
+           
             chat_completion = self._client.chat.completions.create(
-                messages=[{"role": "user", "content": prompt}],
-                model="llama-3.1-8b-instant",  # Updated to supported model
+                messages=messages,
+                model=model,
                 max_tokens=max_tokens,
                 temperature=temperature,
                 top_p=0.9,

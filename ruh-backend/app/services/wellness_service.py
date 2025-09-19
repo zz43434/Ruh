@@ -3,15 +3,14 @@ Wellness Analysis Service for providing Quranic guidance on mental health and we
 Integrates with semantic search to find relevant verses for different wellness categories.
 """
 
-from typing import List, Dict, Any, Optional, Tuple
 from .verse_service import VerseService
-from .embedding_service import EmbeddingService
 from app.core.groq_client import groq_client
 from app.models.database import get_db
 from app.models.wellness_progress import WellnessProgress
 from sqlalchemy.orm import Session
 import json
 import re
+from datetime import datetime
 
 class WellnessService:
     _instance = None
@@ -29,7 +28,7 @@ class WellnessService:
             WellnessService._initialized = True
         self.db = db
 
-    def get_tracked_progress(self, user_id, limit=20, offset=0):
+    def get_wellness_history(self, user_id, limit=20, offset=0):
         """
         Retrieve tracked progress for a user with trend analysis.
 
@@ -56,7 +55,6 @@ class WellnessService:
                     "energy_level": p.energy_level,
                     "stress_level": p.stress_level,
                     "notes": p.notes,
-                    "analysis": p.analysis,
                     "timestamp": p.timestamp.isoformat() if p.timestamp else None
                 }
                 for p in progress
@@ -74,6 +72,59 @@ class WellnessService:
                 "message": f"An error occurred: {str(e)}"
             }
     
+    def process_wellness_checkin(self, mood, energy_level, stress_level, notes="", user_id="default_user"):
+        """
+        Process a wellness check-in and save it to the database.
+        
+        Args:
+            mood (str): The user's current mood
+            energy_level (int): The user's energy level (1-10)
+            stress_level (int): The user's stress level (1-10)
+            notes (str, optional): Additional notes from the user
+            user_id (str, optional): The ID of the user
+            
+        Returns:
+            dict: The saved wellness check-in data with analysis
+        """
+        try:
+            # Create a new wellness progress entry
+            wellness_entry = WellnessProgress(
+                user_id=user_id,
+                mood=mood,
+                energy_level=energy_level,
+                stress_level=stress_level,
+                notes=notes,
+                timestamp=datetime.utcnow()
+            )
+            
+            # Add to database and commit
+            self.db.add(wellness_entry)
+            self.db.commit()
+            self.db.refresh(wellness_entry)
+            
+            # Return the saved data
+            return {
+                "status": "success",
+                "message": "Wellness check-in recorded successfully",
+                "data": {
+                    "id": wellness_entry.id,
+                    "user_id": wellness_entry.user_id,
+                    "mood": wellness_entry.mood,
+                    "energy_level": wellness_entry.energy_level,
+                    "stress_level": wellness_entry.stress_level,
+                    "notes": wellness_entry.notes,
+                    "timestamp": wellness_entry.timestamp.isoformat()
+                }
+            }
+        except Exception as e:
+            # Rollback in case of error
+            if self.db:
+                self.db.rollback()
+            return {
+                "status": "error",
+                "message": f"Failed to save wellness check-in: {str(e)}"
+            }
+            
     def analyze_with_groq(self, checkin_data):
         """
         Analyze the checkin data using Groq to provide guidance, recommendations, and themes.
@@ -88,7 +139,17 @@ class WellnessService:
             # Format the checkin data for the prompt
             checkin_summary = json.dumps(checkin_data, indent=2)
             
-            # Create the prompt for Groq with specific instructions to return JSON
+            # System prompt to enforce JSON response
+            system_prompt = """IMPORTANT: You MUST respond ONLY with a valid JSON object using this exact structure:
+            {{
+                "guidance": "Detailed personalized guidance based on Islamic principles",
+                "recommendations": ["Recommendation 1", "Recommendation 2", "Recommendation 3"],
+                "themes": ["Theme 1", "Theme 2", "Theme 3"]
+            }}
+
+            Do not include any explanations, markdown formatting, or text outside of the JSON structure."""
+            
+            # User prompt with specific instructions
             prompt = f"""
             Analyze the following wellness check-in data and provide:
             1. Personalized guidance based on Islamic principles
@@ -97,35 +158,31 @@ class WellnessService:
 
             Check-in Data:
             {checkin_summary}
-
-            IMPORTANT: You MUST respond ONLY with a valid JSON object using this exact structure:
-            {{
-                "guidance": "Detailed personalized guidance based on Islamic principles",
-                "recommendations": ["Recommendation 1", "Recommendation 2", "Recommendation 3"],
-                "themes": ["Theme 1", "Theme 2", "Theme 3"]
-            }}
-
-            Do not include any explanations, markdown formatting, or text outside of the JSON structure.
             """
             
-            # Call Groq API
-            response = groq_client.chat.completions.create(
-                model="llama3-70b-8192",
-                messages=[{"role": "user", "content": prompt}],
-                temperature=0.3,
-                max_tokens=1000
+            response = groq_client.generate_response(
+                system_prompt=system_prompt,
+                prompt=prompt,
+                max_tokens=1000,
+                temperature=0.3
             )
             
-            # Extract and parse the response
-            content = response.choices[0].message.content
+            content = response
             
-            # Try to extract JSON from the response
             try:
-                # Look for JSON pattern in the response
+                analysis_results = json.loads(content)
+            except json.JSONDecodeError:
                 json_match = re.search(r'({[\s\S]*})', content)
                 if json_match:
                     json_str = json_match.group(1)
-                    analysis_results = json.loads(json_str)
+                    try:
+                        analysis_results = json.loads(json_str)
+                    except json.JSONDecodeError:
+                        analysis_results = {
+                            "guidance": content,
+                            "recommendations": [],
+                            "themes": []
+                        }
                 else:
                     # Fallback if no JSON pattern found
                     analysis_results = {
@@ -133,13 +190,6 @@ class WellnessService:
                         "recommendations": [],
                         "themes": []
                     }
-            except json.JSONDecodeError:
-                # Fallback if JSON parsing fails
-                analysis_results = {
-                    "guidance": content,
-                    "recommendations": [],
-                    "themes": []
-                }
                 
             return analysis_results
         except Exception as e:
