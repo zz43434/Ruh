@@ -148,6 +148,7 @@ export interface WellnessVerse {
 }
 
 export interface WellnessAnalysisResult {
+  [x: string]: WellnessAnalysisResult
   user_input: string
   detected_categories: string[]
   verses: WellnessVerse[]

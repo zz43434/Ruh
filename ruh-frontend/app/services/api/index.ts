@@ -10,7 +10,6 @@ import Config from "../../config"
 import { GeneralApiProblem, getGeneralApiProblem } from "./apiProblem"
 import type { 
   ApiConfig, 
-  ApiFeedResponse,
   ChatInitResponse, 
   ChatMessage, 
   ChatResponse, 
@@ -18,11 +17,7 @@ import type {
   WellnessCheckin, 
   WellnessResponse, 
   WellnessHistory,
-  WellnessCategory,
-  WellnessCategoriesResponse,
-  WellnessAnalysisRequest,
   WellnessAnalysisResult,
-  CategoryVersesResponse,
   VersesResponse,
   Chapter,
   ChapterDetails,
@@ -144,29 +139,6 @@ export class Api {
     return { kind: "ok", data: response.data as WellnessResponse }
   }
 
-  // Wellness Analysis API methods
-  async getWellnessCategories(): Promise<{ kind: "ok"; data: WellnessCategoriesResponse } | { kind: "error"; error: any }> {
-    const response = await this.apisauce.get("/wellness/categories")
-
-    if (!response.ok) {
-      const problem = getGeneralApiProblem(response)
-      if (problem) return { kind: "error", error: problem }
-    }
-
-    return { kind: "ok", data: response.data as WellnessCategoriesResponse }
-  }
-
-  async analyzeWellness(request: WellnessAnalysisRequest): Promise<{ kind: "ok"; data: WellnessAnalysisResult } | { kind: "error"; error: any }> {
-    const response = await this.apisauce.post("/wellness/analyze", request)
-
-    if (!response.ok) {
-      const problem = getGeneralApiProblem(response)
-      if (problem) return { kind: "error", error: problem }
-    }
-
-    return { kind: "ok", data: response.data as WellnessAnalysisResult }
-  }
-  
   async getAIWellnessAnalysis(userId: string, minCheckins: number = 3): Promise<{ kind: "ok"; data: WellnessAnalysisResult } | { kind: "error"; error: any }> {
     const response = await this.apisauce.post("/wellness/ai-analysis", { 
       user_id: userId,
@@ -179,17 +151,6 @@ export class Api {
     }
 
     return { kind: "ok", data: response.data as WellnessAnalysisResult }
-  }
-
-  async getCategoryVerses(categoryId: string, maxVerses: number = 5): Promise<{ kind: "ok"; data: CategoryVersesResponse } | { kind: "error"; error: any }> {
-    const response = await this.apisauce.get(`/wellness/category/${categoryId}/verses`, { max_verses: maxVerses })
-
-    if (!response.ok) {
-      const problem = getGeneralApiProblem(response)
-      if (problem) return { kind: "error", error: problem }
-    }
-
-    return { kind: "ok", data: response.data as CategoryVersesResponse }
   }
 
   // Chapters API methods
@@ -322,5 +283,4 @@ export class Api {
   }
 }
 
-// Singleton instance of the API for convenience
 export const api = new Api()

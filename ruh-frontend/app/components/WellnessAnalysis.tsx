@@ -41,8 +41,10 @@ export const WellnessAnalysis: FC<WellnessAnalysisProps> = function WellnessAnal
     try {
       const response = await api.getAIWellnessAnalysis(user.id, 3)
       if (response.kind === "ok") {
-        setAnalysisResult(response.data)
-        onAnalysisComplete?.(response.data)
+        // Handle both nested analysis object and direct data structure
+        const result = response.data.analysis || response.data
+        setAnalysisResult(result)
+        onAnalysisComplete?.(result)
       } else {
         console.error('Failed to get AI wellness analysis:', response.error)
         setError(response.error?.message || "Failed to get analysis. Please try again.")
@@ -86,11 +88,12 @@ export const WellnessAnalysis: FC<WellnessAnalysisProps> = function WellnessAnal
     return (
       <ScrollView style={themed($resultsContainer)} showsVerticalScrollIndicator={false}>
         {/* Islamic Themes */}
-        {analysisResult.detected_categories && analysisResult.detected_categories.length > 0 && (
+        {(analysisResult.themes || analysisResult.detected_categories) && 
+         (analysisResult.themes?.length > 0 || analysisResult.detected_categories?.length > 0) && (
           <View style={themed($section)}>
             <Text style={themed($sectionTitle)}>Islamic Themes</Text>
             <View style={themed($categoriesContainer)}>
-              {analysisResult.detected_categories.map((theme, index) => (
+              {(analysisResult.themes || analysisResult.detected_categories)?.map((theme, index) => (
                 <View key={index} style={themed($categoryTag)}>
                   <Text style={themed($categoryText)}>{theme}</Text>
                 </View>
@@ -161,48 +164,6 @@ export const WellnessAnalysis: FC<WellnessAnalysisProps> = function WellnessAnal
 const $container: ThemedStyle<ViewStyle> = ({ spacing }) => ({
   flex: 1,
   padding: spacing.md,
-})
-
-const $inputSection: ThemedStyle<ViewStyle> = ({ spacing }) => ({
-  marginBottom: spacing.lg,
-})
-
-const $inputLabel: ThemedStyle<TextStyle> = ({ colors, spacing }) => ({
-  fontSize: 16,
-  fontWeight: "600",
-  color: colors.text,
-  marginBottom: spacing.sm,
-})
-
-const $textInput: ThemedStyle<ViewStyle> = ({ colors, spacing }) => ({
-  backgroundColor: colors.palette.neutral100,
-  borderRadius: 12,
-  padding: spacing.md,
-  fontSize: 16,
-  color: colors.text,
-  borderWidth: 1,
-  borderColor: colors.palette.neutral300,
-  minHeight: 100,
-  marginBottom: spacing.md,
-})
-
-const $buttonContainer: ThemedStyle<ViewStyle> = ({ spacing }) => ({
-  flexDirection: "row",
-  gap: spacing.sm,
-})
-
-const $analyzeButton: ThemedStyle<ViewStyle> = ({ colors }) => ({
-  flex: 1,
-  backgroundColor: colors.palette.primary500,
-})
-
-const $clearButton: ThemedStyle<ViewStyle> = ({ colors }) => ({
-  backgroundColor: colors.palette.neutral300,
-  paddingHorizontal: 20,
-})
-
-const $clearButtonText: ThemedStyle<TextStyle> = ({ colors }) => ({
-  color: colors.text,
 })
 
 const $loadingContainer: ThemedStyle<ViewStyle> = ({ spacing }) => ({
