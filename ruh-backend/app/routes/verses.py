@@ -69,12 +69,10 @@ def search_chapters():
         if request.method == 'GET':
             theme = request.args.get('theme', '')
             max_results = int(request.args.get('max_results', 10))
-            sort_by = request.args.get('sort_by', 'relevance')
         else:
             data = request.get_json()
             theme = data.get('theme', '')
             max_results = data.get('max_results', 10)
-            sort_by = data.get('sort_by', 'relevance')
         
         if not theme:
             # Return all chapters if no search theme provided
@@ -86,7 +84,7 @@ def search_chapters():
             }), 200
         
         results = verse_service.search_chapters_by_theme(
-            theme, max_results, sort_by
+            theme, max_results
         )
         
         return jsonify({

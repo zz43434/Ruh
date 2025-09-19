@@ -159,84 +159,323 @@ class VerseService:
             print(f"Error fetching entries from Qdrant: {str(e)}")
             return []
             
-    def search_chapters_by_theme(self, theme: str, max_results: int = 10, sort_by: str = 'relevance') -> List[Dict]:
+    def search_chapters_by_theme(self, theme: str, max_results: int = 10) -> List[Dict]:
         """
-        Search for chapters by theme using semantic similarity via find_similar_verses.
-        Falls back to keyword matching if embeddings are not available.
+        Enhanced search for chapters by theme with explanations and improved scoring.
         """
-        
         try:
-            # Initialize embedding service if needed
-            if self.embedding_service is None:
-                from .embedding_service import EmbeddingService
-                self.embedding_service = EmbeddingService()
+            # Ensure embedding service is initialized
+            self._ensure_embeddings_initialized()
             
-            # Use find_similar_verses to get semantically similar verses
-            similar_verses = self.embedding_service.find_similar_verses(
-                query=theme,
-                top_k=max_results * 2,  # Get more results to aggregate by chapter
-                min_similarity=0.1
-            )
+            # Increase search scope for better results
+            top_k = min(max_results * 8, 100)  # Get more verses for better aggregation
             
-            # Extract chapter information from similar verses
-            surah_info = {}
-            for verse_data, similarity in similar_verses:
-                surah_number = verse_data.get('surah_number')
-                if not surah_number:
+            print(f"Searching for theme: '{theme}' with top_k: {top_k}")
+            
+            # Use semantic search to find relevant verses
+            similar_verses = self.embedding_service.find_similar_verses(theme, top_k=top_k)
+            
+            print(f"Found {len(similar_verses) if similar_verses else 0} similar verses")
+            
+            if not similar_verses:
+                print("No similar verses found, falling back to keyword search")
+                return self._keyword_search_chapters_fallback(theme, max_results)
+            
+            # Enhanced aggregation with better scoring
+            chapter_info = {}
+            theme_keywords = self._extract_theme_keywords(theme)
+            
+            print(f"Theme keywords: {theme_keywords}")
+            
+            for verse_tuple in similar_verses:
+                verse, similarity_score = verse_tuple
+                surah_number = verse.get('surah_number')
+                
+                # Use 'analysis' field for English text, fallback to 'arabic_text'
+                verse_text = verse.get('analysis', '') or verse.get('arabic_text', '')
+                verse_number = verse.get('verse_id', '').split(':')[-1] if verse.get('verse_id') else None
+                
+                print(f"Processing verse: surah={surah_number}, text_length={len(verse_text)}, similarity={similarity_score}")
+                print(f"Verse text preview: '{verse_text[:100]}...' (length: {len(verse_text)})")
+                
+                if surah_number not in chapter_info:
+                    chapter_info[surah_number] = {
+                        'surah_name': verse.get('surah_name', ''),
+                        'number_of_verses': verse.get('number_of_verses', 0),
+                        'revelation_place': verse.get('revelation_place', ''),
+                        'verses': [],
+                        'total_similarity': 0,
+                        'max_similarity': 0,
+                        'verse_count': 0,
+                        'themes_found': set(),
+                        'contextual_score': 0
+                    }
+                
+                # Enhanced similarity calculation using the actual similarity from the tuple
+                # Boost score for direct keyword matches
+                keyword_boost = sum(1 for keyword in theme_keywords if keyword in verse_text.lower()) * 0.1
+                adjusted_similarity = min(similarity_score + keyword_boost, 1.0)
+                
+                # Calculate contextual relevance
+                contextual_score = self._calculate_contextual_relevance(verse_text, theme, theme_keywords)
+                
+                chapter_info[surah_number]['verses'].append({
+                    'verse_number': verse_number,
+                    'text': verse_text,  # Use the extracted verse_text
+                    'similarity': adjusted_similarity,
+                    'contextual_score': contextual_score
+                })
+                
+                chapter_info[surah_number]['total_similarity'] += adjusted_similarity
+                chapter_info[surah_number]['max_similarity'] = max(
+                    chapter_info[surah_number]['max_similarity'], 
+                    adjusted_similarity
+                )
+                chapter_info[surah_number]['verse_count'] += 1
+                chapter_info[surah_number]['contextual_score'] += contextual_score
+                
+                # Extract themes from this verse
+                verse_themes = self._extract_themes_from_verse(verse_text, theme)
+                print(f"Extracted themes for verse: {verse_themes}")
+                chapter_info[surah_number]['themes_found'].update(verse_themes)
+            
+            print(f"Processed {len(chapter_info)} chapters")
+            
+            # Enhanced scoring and ranking
+            surah_results = []
+            for surah_number, info in chapter_info.items():
+                if info['verse_count'] == 0:
                     continue
                 
-                if surah_number not in surah_info:
-                    surah_info[surah_number] = {
-                        "surah_name": verse_data.get("surah_name", ""),
-                        "surah_number": surah_number,
-                        "number_of_verses": 1,  # Start counting verses
-                        "revelation_place": verse_data.get("revelation_place", ""),
-                        "similarity": similarity  # Keep similarity for sorting
-                    }
-                else:
-                    # Increment verse count
-                    surah_info[surah_number]["number_of_verses"] += 1
-                    # Update similarity if this verse has higher score
-                    if similarity > surah_info[surah_number]["similarity"]:
-                        surah_info[surah_number]["similarity"] = similarity
-            
-            # Convert to list and sort
-            results = list(surah_info.values())
-            print(results)
-            
-            # Sort by relevance (similarity) or surah number
-            if sort_by == 'relevance':
-                results.sort(key=lambda x: x['similarity'], reverse=True)
-            else:
-                results.sort(key=lambda x: x['surah_number'])
-
-            print(results)
-            
+                # Multi-factor scoring
+                avg_similarity = info['total_similarity'] / info['verse_count']
+                max_similarity = info['max_similarity']
+                verse_density = min(info['verse_count'] / info['number_of_verses'], 1.0) if info['number_of_verses'] > 0 else 0
+                avg_contextual = info['contextual_score'] / info['verse_count']
+                theme_diversity = len(info['themes_found'])
                 
-            return results[:max_results]
+                # Weighted composite score
+                composite_score = (
+                    avg_similarity * 0.4 +           # Average relevance
+                    max_similarity * 0.3 +           # Peak relevance
+                    verse_density * 0.15 +           # Coverage within surah
+                    avg_contextual * 0.1 +           # Contextual understanding
+                    min(theme_diversity * 0.05, 0.05) # Theme diversity bonus
+                )
+                
+                # Sort verses by similarity for better presentation
+                info['verses'].sort(key=lambda v: v['similarity'], reverse=True)
+                
+                # Generate enhanced explanation
+                relevance_explanation = self._generate_enhanced_relevance_explanation(
+                    info, theme, avg_similarity, verse_density, theme_diversity
+                )
+                
+                surah_results.append({
+                    'surah_number': surah_number,
+                    'surah_name': info['surah_name'],
+                    'number_of_verses': info['number_of_verses'],
+                    'revelation_place': info['revelation_place'],
+                    'similarity': composite_score,
+                    'matching_verses': info['verses'][:3],  # Top 3 most relevant verses
+                    'themes_found': list(info['themes_found']),
+                    'relevance_explanation': relevance_explanation,
+                    'verse_coverage': f"{info['verse_count']} verses match",
+                    'contextual_relevance': avg_contextual
+                })
+            
+            # Sort by composite score and return top results
+            surah_results.sort(key=lambda x: x['similarity'], reverse=True)
+            
+            print(f"Returning {len(surah_results)} results")
+            
+            return surah_results[:max_results]
             
         except Exception as e:
-            print(f"Semantic chapter search failed, falling back to keyword search: {e}")
+            print(f"Error in enhanced chapter search: {e}")
+            import traceback
+            traceback.print_exc()
+            return self._keyword_search_chapters_fallback(theme, max_results)
+
+    def _extract_theme_keywords(self, theme: str) -> List[str]:
+        """Extract key terms from the search theme for enhanced matching."""
+        # Simple keyword extraction - could be enhanced with NLP
+        import re
         
-        # Fallback to keyword matching
-        return self._keyword_search_chapters_fallback(theme, max_results)
+        # Remove common stop words and extract meaningful terms
+        stop_words = {'the', 'and', 'or', 'but', 'in', 'on', 'at', 'to', 'for', 'of', 'with', 'by', 'a', 'an'}
+        words = re.findall(r'\b\w+\b', theme.lower())
+        keywords = [word for word in words if word not in stop_words and len(word) > 2]
+        
+        return keywords
+
+    def _calculate_contextual_relevance(self, verse_text: str, theme: str, theme_keywords: List[str]) -> float:
+        """Calculate contextual relevance beyond simple keyword matching."""
+        verse_lower = verse_text.lower()
+        theme_lower = theme.lower()
+        
+        # Direct theme mention
+        if theme_lower in verse_lower:
+            return 0.8
+        
+        # Keyword density
+        keyword_matches = sum(1 for keyword in theme_keywords if keyword in verse_lower)
+        keyword_density = keyword_matches / max(len(theme_keywords), 1)
+        
+        # Semantic proximity (simplified)
+        semantic_indicators = {
+            'prayer': ['worship', 'devotion', 'praise', 'glorify', 'remember'],
+            'guidance': ['path', 'way', 'direction', 'lead', 'guide'],
+            'mercy': ['compassion', 'forgiveness', 'kindness', 'grace'],
+            'patience': ['perseverance', 'endurance', 'steadfast', 'bear'],
+            'faith': ['believe', 'trust', 'conviction', 'certainty'],
+            'justice': ['fair', 'right', 'equity', 'balance'],
+            'knowledge': ['wisdom', 'understanding', 'learn', 'teach']
+        }
+        
+        semantic_score = 0
+        for concept, indicators in semantic_indicators.items():
+            if concept in theme_lower:
+                semantic_score += sum(0.1 for indicator in indicators if indicator in verse_lower)
+        
+        return min(keyword_density * 0.6 + semantic_score, 1.0)
+
+    def _extract_themes_from_verse(self, verse_text: str, search_theme: str) -> set:
+        """Extract themes found in a verse based on the search theme and semantic analysis."""
+        verse_lower = verse_text.lower()
+        search_lower = search_theme.lower()
+        themes_found = set()
+        
+        # Add the main search theme if found
+        if search_lower in verse_lower:
+            themes_found.add(search_theme)
+        
+        # Theme mapping for semantic analysis
+        theme_patterns = {
+            'prayer': ['pray', 'worship', 'devotion', 'praise', 'glorify', 'remember allah', 'salah'],
+            'guidance': ['guide', 'path', 'way', 'direction', 'lead', 'straight path', 'guidance'],
+            'mercy': ['mercy', 'compassion', 'forgiveness', 'kindness', 'grace', 'merciful'],
+            'patience': ['patience', 'perseverance', 'endurance', 'steadfast', 'bear', 'patient'],
+            'faith': ['faith', 'believe', 'trust', 'conviction', 'certainty', 'believers'],
+            'justice': ['justice', 'fair', 'right', 'equity', 'balance', 'just'],
+            'knowledge': ['knowledge', 'wisdom', 'understanding', 'learn', 'teach', 'know'],
+            'charity': ['charity', 'give', 'spend', 'poor', 'needy', 'zakah'],
+            'forgiveness': ['forgive', 'pardon', 'mercy', 'repent', 'repentance'],
+            'gratitude': ['grateful', 'thank', 'praise', 'appreciate', 'blessing']
+        }
+        
+        # Check for theme patterns in the verse
+        for theme, patterns in theme_patterns.items():
+            for pattern in patterns:
+                if pattern in verse_lower:
+                    themes_found.add(theme)
+                    break
+        
+        return themes_found
+
+    def _generate_enhanced_relevance_explanation(self, info: Dict, theme: str, avg_similarity: float, 
+                                               verse_density: float, theme_diversity: int) -> str:
+        """Generate a comprehensive explanation for why this surah is relevant."""
+        surah_name = info['surah_name']
+        verse_count = info['verse_count']
+        themes = list(info['themes_found'])
+        
+        explanation_parts = []
+        
+        # Main relevance reason
+        if avg_similarity > 0.8:
+            explanation_parts.append(f"Surah {surah_name} is highly relevant to '{theme}'")
+        elif avg_similarity > 0.6:
+            explanation_parts.append(f"Surah {surah_name} has strong connections to '{theme}'")
+        else:
+            explanation_parts.append(f"Surah {surah_name} relates to '{theme}'")
+        
+        # Verse coverage
+        if verse_count == 1:
+            explanation_parts.append("with 1 matching verse")
+        else:
+            explanation_parts.append(f"with {verse_count} matching verses")
+        
+        # Theme diversity
+        if themes:
+            if len(themes) == 1:
+                explanation_parts.append(f"focusing on {themes[0].lower()}")
+            elif len(themes) == 2:
+                explanation_parts.append(f"covering {themes[0].lower()} and {themes[1].lower()}")
+            else:
+                explanation_parts.append(f"covering multiple aspects including {', '.join(themes[:2]).lower()}")
+        
+        # Coverage density
+        if verse_density > 0.1:
+            explanation_parts.append("with substantial coverage throughout the chapter")
+        elif verse_density > 0.05:
+            explanation_parts.append("with moderate coverage in the chapter")
+        
+        return " ".join(explanation_parts) + "."
 
     def _keyword_search_chapters_fallback(self, theme: str, max_results: int = 10) -> List[Dict]:
         """
-        Fallback keyword search method for chapters.
+        Fallback keyword search method for chapters with basic explanations.
         """
         matching_chapters = []
         theme_lower = theme.lower()
         
+        # Get all chapters data (you'll need to implement this or use existing data)
+        all_chapters = self.get_all_chapters()  # This method needs to be implemented
+        
         for chapter in all_chapters:
-            # Simple keyword matching
-            if (theme_lower in chapter['name'].lower() or 
-                theme_lower in chapter.get('summary', '').lower() or
-                theme_lower in chapter['revelation_place'].lower()):
-                matching_chapters.append(chapter)
+            match_reasons = []
+            
+            # Check name match
+            if theme_lower in chapter['name'].lower():
+                match_reasons.append(f"chapter name contains '{theme}'")
+            
+            # Check summary match
+            if theme_lower in chapter.get('summary', '').lower():
+                match_reasons.append(f"chapter summary mentions '{theme}'")
+            
+            # Check revelation place match
+            if theme_lower in chapter['revelation_place'].lower():
+                match_reasons.append(f"revealed in {chapter['revelation_place']}")
+            
+            if match_reasons:
+                chapter_with_explanation = chapter.copy()
+                chapter_with_explanation.update({
+                    "relevance_explanation": f"Surah {chapter['name']} matches because " + " and ".join(match_reasons) + ".",
+                    "matching_verses": [],
+                    "themes_found": [theme.title()],
+                    "similarity": 0.5  # Default similarity for keyword matches
+                })
+                matching_chapters.append(chapter_with_explanation)
         
         # Limit results
         return matching_chapters[:max_results]
+
+    def get_all_chapters(self) -> List[Dict]:
+        """
+        Get basic information about all chapters for fallback search.
+        This is a simplified version that returns chapter metadata.
+        """
+        try:
+            # Use the existing method to get first entries per surah
+            chapters = self.get_first_entries_per_surah()
+            
+            # Transform to match expected format
+            all_chapters = []
+            for chapter in chapters:
+                all_chapters.append({
+                    'name': chapter.get('surah_name', ''),
+                    'surah_number': chapter.get('surah_number', 0),
+                    'number_of_verses': chapter.get('number_of_verses', 0),
+                    'revelation_place': chapter.get('revelation_place', ''),
+                    'summary': ''  # Could be enhanced with actual summaries
+                })
+            
+            return all_chapters
+            
+        except Exception as e:
+            print(f"Error getting all chapters: {e}")
+            return []
 
     def get_chapter_with_verses(self, surah_number: int) -> Optional[Dict]:
         """

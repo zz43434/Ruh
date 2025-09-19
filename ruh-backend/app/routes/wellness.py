@@ -100,3 +100,50 @@ def get_ai_wellness_analysis():
         
     except Exception as e:
         return jsonify({"error": str(e)}), 500
+
+@wellness_bp.route('/wellness/clear', methods=['DELETE'])
+def clear_wellness_data():
+    """
+    Clear all wellness data for a user
+    """
+    try:
+        db = next(get_db())
+        wellness_service = WellnessService(db=db)
+        
+        user_id = request.args.get('user_id')
+        if not user_id:
+            return jsonify({"error": "user_id parameter is required"}), 400
+        
+        result = wellness_service.clear_wellness_data(user_id)
+        
+        if result["success"]:
+            return jsonify(result), 200
+        else:
+            return jsonify(result), 500
+        
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@wellness_bp.route('/wellness/clear-all', methods=['DELETE'])
+def clear_all_wellness_data():
+    """
+    Clear all wellness data for all users (admin function)
+    """
+    try:
+        db = next(get_db())
+        wellness_service = WellnessService(db=db)
+        
+        # Optional: Add admin authentication check here
+        # admin_key = request.headers.get('X-Admin-Key')
+        # if admin_key != 'your_admin_key':
+        #     return jsonify({"error": "Unauthorized"}), 401
+        
+        result = wellness_service.clear_all_wellness_data()
+        
+        if result["success"]:
+            return jsonify(result), 200
+        else:
+            return jsonify(result), 500
+        
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500

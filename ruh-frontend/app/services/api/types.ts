@@ -183,6 +183,7 @@ export interface Chapter {
   surah_name: string
   number_of_verses: number
   revelation_place: string
+  themes_found?: string[]
 }
 
 export interface ChapterDetails {

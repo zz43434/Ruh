@@ -3,6 +3,7 @@ Wellness Analysis Service for providing Quranic guidance on mental health and we
 Integrates with semantic search to find relevant verses for different wellness categories.
 """
 
+from typing import Dict
 from .verse_service import VerseService
 from app.core.groq_client import groq_client
 from app.models.database import get_db

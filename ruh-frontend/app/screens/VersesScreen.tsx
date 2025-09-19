@@ -113,7 +113,10 @@ export const VersesScreen: FC<VersesScreenProps> = function VersesScreen() {
           </Text>
         </View>
         <Text style={themed($verseText)}>
-          {item.number_of_verses} verses • {item.revelation_place}
+          {item.themes_found && item.themes_found.length > 0 
+            ? `Themes: ${item.themes_found.join(', ')}`
+            : `${item.number_of_verses} verses • ${item.revelation_place}`
+          }
         </Text>
       </View>
     </TouchableOpacity>
