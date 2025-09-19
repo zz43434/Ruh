@@ -12,7 +12,6 @@ import { Text } from "react-native"
 
 import Config from "@/config"
 import { ErrorBoundary } from "@/screens/ErrorScreen/ErrorBoundary"
-import { WelcomeScreen } from "@/screens/WelcomeScreen"
 import { ChatScreen } from "@/screens/ChatScreen"
 import { VersesScreen } from "@/screens/VersesScreen"
 import { WellnessScreen } from "@/screens/WellnessScreen"
@@ -89,6 +88,7 @@ const MainTabs = () => {
           fontWeight: "500",
         },
       }}
+      initialRouteName="Chat"
     >
       <Tab.Screen 
         name="Chat" 
@@ -167,14 +167,8 @@ const AppStack = () => {
         },
         ...screenAnimations.main, // Default animation for all screens
       }}
+      initialRouteName="MainTabs"
     >
-      <Stack.Screen 
-        name="Welcome" 
-        component={WelcomeScreen}
-        options={{
-          ...fadeAnimation, // Fade in for welcome screen
-        }}
-      />
       <Stack.Screen 
         name="MainTabs" 
         component={MainTabs}
